@@ -1,0 +1,20 @@
+{
+  "analysis_id": "CDNA-001-PHASE-001",
+  "case_id": "CDNA-001",
+  "disclaimer": "This is a planning decision map, not a biological phase transition, causal probability, evidence strength, or therapeutic recommendation.",
+  "target_experiment_id": "E5_MATCHED_MULTIOMIC",
+  "decision_rule": "minimax_interval_regret",
+  "prior_model": "deterministic_simplex_grid",
+  "prior_simplex_total_units": 12,
+  "prior_min_units_per_hypothesis": 1,
+  "target_reliability_grid": [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+  "target_cost_multiplier_grid": [0.5, 0.75, 1.0, 1.25, 1.5, 2.0],
+  "outcome_probability_max_transfer_grid": [0.0, 0.1, 0.2],
+  "include_stop": true,
+  "notes": [
+    "The target experiment varies across the declared reliability and cost grids; all competitor experiments remain at baseline reliability=1 and cost multiplier=1.",
+    "Outcome-probability uncertainty is applied symmetrically to every experiment using bounded pairwise mass transfers.",
+    "Each cell sweeps 165 deterministic prior states. Boundaries are therefore coarse grid brackets, not exact continuous thresholds.",
+    "The full 1,140-prior sensitivity analysis remains a separate validation layer; this map deliberately trades prior-grid density for a tractable three-dimensional boundary scan."
+  ]
+}
