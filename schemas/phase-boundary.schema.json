@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/phase-boundary.schema.json",
+  "title": "CAUSAL-DNA robust phase-boundary configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_id",
+    "case_id",
+    "disclaimer",
+    "target_experiment_id",
+    "decision_rule",
+    "prior_model",
+    "prior_simplex_total_units",
+    "prior_min_units_per_hypothesis",
+    "target_reliability_grid",
+    "target_cost_multiplier_grid",
+    "outcome_probability_max_transfer_grid",
+    "include_stop"
+  ],
+  "properties": {
+    "analysis_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "disclaimer": {"type": "string", "minLength": 1},
+    "target_experiment_id": {"type": "string", "minLength": 1},
+    "decision_rule": {"const": "minimax_interval_regret"},
+    "prior_model": {"const": "deterministic_simplex_grid"},
+    "prior_simplex_total_units": {"type": "integer", "minimum": 1},
+    "prior_min_units_per_hypothesis": {"type": "integer", "minimum": 1},
+    "target_reliability_grid": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"type": "number", "minimum": 0, "maximum": 1}
+    },
+    "target_cost_multiplier_grid": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"type": "number", "exclusiveMinimum": 0}
+    },
+    "outcome_probability_max_transfer_grid": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"type": "number", "minimum": 0, "exclusiveMaximum": 0.5}
+    },
+    "include_stop": {"const": true},
+    "notes": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}
