@@ -1,0 +1,50 @@
+name: GAP-001 VPH RData via Python
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/inspect_vph_rdata.py'
+      - 'analysis/requirements-rdata.txt'
+      - '.github/workflows/gap001-vph-rdata-python.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-rdata-python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -r analysis/requirements-rdata.txt
+      - name: Download official neuronal VPH RData
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/vph-2020
+          curl --fail --location --retry 4 --retry-all-errors \
+            --connect-timeout 30 --max-time 600 \
+            --output data/vph-2020/vph-2020_neuronal.rdata \
+            https://singlecell.jax.org/datasets/vph/rdata/vph-2020_neuronal.rdata
+          ls -lh data/vph-2020/vph-2020_neuronal.rdata
+      - name: Inspect curated objects
+        run: |
+          python analysis/inspect_vph_rdata.py \
+            --rdata data/vph-2020/vph-2020_neuronal.rdata \
+            --output-dir results/gap001-vph-rdata-python
+      - name: Show report
+        run: cat results/gap001-vph-rdata-python/report.md
+      - name: Upload evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap001-vph-rdata-python
+          path: results/gap001-vph-rdata-python/
+          if-no-files-found: error
+          retention-days: 30
