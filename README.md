@@ -171,6 +171,33 @@ Implementation:
 - [`cases/CDNA-001.replanning-scenarios.json`](cases/CDNA-001.replanning-scenarios.json)
 - [`docs/adaptive-causal-loop.md`](docs/adaptive-causal-loop.md)
 
+## Multi-step research strategy
+
+CAUSAL-DNA can also search a short **adaptive policy tree** under a declared budget:
+
+```text
+experiment E1
+   |
+   +-- outcome A -> experiment E2
+   |
+   +-- outcome B -> experiment E4
+```
+
+Instead of asking only “what should we test next?”, this asks:
+
+> Which contingent 2–3 step strategy is expected to reduce the most uncertainty without exceeding the research budget?
+
+The planner tracks expected terminal entropy, expected information gain, expected cost, maximum path cost, and gain per cost. It performs exact short-horizon enumeration with Pareto pruning. The horizon is intentionally capped at three steps so planning assumptions do not compound indefinitely before new evidence arrives.
+
+This layer is still planning-only. It cannot write `cause_found`, `causal_status`, `materialized`, or `verification_status`.
+
+Implementation:
+
+- [`causal_dna/strategy_planner.py`](causal_dna/strategy_planner.py)
+- [`schemas/strategy-config.schema.json`](schemas/strategy-config.schema.json)
+- [`cases/CDNA-001.strategy-configs.json`](cases/CDNA-001.strategy-configs.json)
+- [`docs/multi-step-research-strategy.md`](docs/multi-step-research-strategy.md)
+
 ## First case: CDNA-001 — rs1421085
 
 The obesity-associated non-coding variant **rs1421085 T>C** is a useful benchmark because one branch is unusually well supported experimentally, while another branch remains incomplete.
@@ -231,4 +258,4 @@ CAUSAL-DNA is a computational and evidence-mapping research project. It does **n
 
 ---
 
-**Status:** bootstrap / causal proof protocol + three-space graph + 4D lattice + append-only processor + active experiment selection + adaptive replanning
+**Status:** bootstrap / causal proof protocol + three-space graph + 4D lattice + append-only processor + active experiment selection + adaptive replanning + budgeted multi-step strategy planning
