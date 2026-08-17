@@ -5,6 +5,10 @@ Planner probabilities are *not biological evidence*. They are explicit planning
 priors used only to rank candidate experiments by expected reduction of
 hypothesis uncertainty. Material causal confidence changes only through the
 append-only evidence/verification pipeline.
+
+`posterior_weights` in an experiment outcome are treated as likelihood-like
+planning multipliers. They are multiplied by the current planning weights, so
+ranking can be recomputed after each hypothetical or observed planning outcome.
 """
 from __future__ import annotations
 
@@ -30,6 +34,17 @@ def _entropy(weights: dict[str, float]) -> float:
         p = value / total
         h -= p * math.log2(p)
     return h
+
+
+def _apply_multipliers(
+    prior: dict[str, float], multipliers: dict[str, float]
+) -> dict[str, float]:
+    if set(prior) != set(multipliers):
+        raise ExperimentSelectorError("posterior_weights must cover all hypotheses")
+    updated = {key: prior[key] * multipliers[key] for key in prior}
+    if sum(updated.values()) <= 0:
+        raise ExperimentSelectorError("outcome multipliers eliminate all hypotheses")
+    return updated
 
 
 @dataclass(frozen=True)
@@ -73,18 +88,38 @@ class ExperimentSelector:
                 if not isinstance(probability, (int, float)) or not (0 <= probability <= 1):
                     raise ExperimentSelectorError(f"{eid}: invalid planning_probability")
                 outcome_probability_sum += probability
-                posterior = outcome.get("posterior_weights", {})
-                if set(posterior) != known:
+                multipliers = outcome.get("posterior_weights", {})
+                if set(multipliers) != known:
                     raise ExperimentSelectorError(f"{eid}: posterior_weights must cover all hypotheses")
-                _entropy(posterior)
+                if any(not isinstance(v, (int, float)) or v < 0 for v in multipliers.values()):
+                    raise ExperimentSelectorError(f"{eid}: posterior_weights must be non-negative numbers")
+                _apply_multipliers(self.hypotheses, multipliers)
             if not math.isclose(outcome_probability_sum, 1.0, abs_tol=1e-9):
                 raise ExperimentSelectorError(f"{eid}: planning probabilities must sum to 1")
+
+    def experiment(self, experiment_id: str) -> dict[str, Any]:
+        for experiment in self.experiments:
+            if experiment["experiment_id"] == experiment_id:
+                return experiment
+        raise ExperimentSelectorError(f"unknown experiment: {experiment_id}")
+
+    def posterior_for_outcome(
+        self, experiment_id: str, outcome_name: str
+    ) -> dict[str, float]:
+        experiment = self.experiment(experiment_id)
+        for outcome in experiment["outcomes"]:
+            if outcome["name"] == outcome_name:
+                return _apply_multipliers(self.hypotheses, outcome["posterior_weights"])
+        raise ExperimentSelectorError(
+            f"unknown outcome {outcome_name!r} for experiment {experiment_id}"
+        )
 
     def score(self, experiment: dict[str, Any]) -> ExperimentScore:
         prior_h = _entropy(self.hypotheses)
         expected_h = 0.0
         for outcome in experiment["outcomes"]:
-            expected_h += outcome["planning_probability"] * _entropy(outcome["posterior_weights"])
+            updated = _apply_multipliers(self.hypotheses, outcome["posterior_weights"])
+            expected_h += outcome["planning_probability"] * _entropy(updated)
         gain = max(0.0, prior_h - expected_h)
         normalized = gain / prior_h if prior_h else 0.0
         cost = float(experiment.get("cost", 1.0))
@@ -98,16 +133,31 @@ class ExperimentSelector:
             utility_per_cost=gain / cost,
         )
 
-    def rank(self, *, objective: str = "information_gain") -> list[ExperimentScore]:
-        scores = [self.score(exp) for exp in self.experiments]
+    def rank(
+        self,
+        *,
+        objective: str = "information_gain",
+        exclude: set[str] | None = None,
+    ) -> list[ExperimentScore]:
+        excluded = exclude or set()
+        scores = [
+            self.score(exp)
+            for exp in self.experiments
+            if exp["experiment_id"] not in excluded
+        ]
         if objective == "information_gain":
             return sorted(scores, key=lambda s: (-s.expected_information_gain_bits, s.cost, s.experiment_id))
         if objective == "gain_per_cost":
             return sorted(scores, key=lambda s: (-s.utility_per_cost, -s.expected_information_gain_bits, s.experiment_id))
         raise ExperimentSelectorError(f"unknown objective: {objective}")
 
-    def best(self, *, objective: str = "information_gain") -> ExperimentScore:
-        ranked = self.rank(objective=objective)
+    def best(
+        self,
+        *,
+        objective: str = "information_gain",
+        exclude: set[str] | None = None,
+    ) -> ExperimentScore:
+        ranked = self.rank(objective=objective, exclude=exclude)
         if not ranked:
             raise ExperimentSelectorError("no experiments available")
         return ranked[0]
