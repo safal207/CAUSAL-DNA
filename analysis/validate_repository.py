@@ -3,8 +3,8 @@
 
 This gate checks structure, cross-record identifiers, three-space graph
 integrity, four-dimensional temporal-lattice integrity, append-only causal
-processor history, and research-integrity invariants. It does not judge
-whether a biological claim is true.
+processor history, active experiment-planning integrity, and research-
+integrity invariants. It does not judge whether a biological claim is true.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from causal_dna.experiment_selector import ExperimentSelector, ExperimentSelectorError  # noqa: E402
 from causal_dna.processor import CausalProcessor, CausalProcessorError  # noqa: E402
 from causal_dna.space_graph import SpaceGraph  # noqa: E402
 from causal_dna.temporal_lattice import TemporalLattice  # noqa: E402
@@ -46,12 +47,14 @@ def main() -> int:
     graph_schema = load(ROOT / "schemas" / "space-graph.schema.json")
     lattice_schema = load(ROOT / "schemas" / "temporal-lattice.schema.json")
     event_schema = load(ROOT / "schemas" / "causal-event.schema.json")
+    plan_schema = load(ROOT / "schemas" / "experiment-plan.schema.json")
 
     edges = load(ROOT / "cases" / "CDNA-001-rs1421085.edges.json")
     gap = load(ROOT / "cases" / "CDNA-001-GAP-001.status.json")
     graph_doc = load(ROOT / "cases" / "CDNA-001-rs1421085.space-graph.json")
     lattice_doc = load(ROOT / "cases" / "CDNA-001-rs1421085.temporal-lattice.json")
     events = load(ROOT / "cases" / "CDNA-001.events.json")
+    experiment_plan = load(ROOT / "cases" / "CDNA-001.experiment-plan.json")
 
     if not isinstance(edges, list) or not edges:
         errors.append("edge ledger must be a non-empty JSON array")
@@ -67,6 +70,7 @@ def main() -> int:
     errors.extend(validate(gap, gap_schema, "GAP-001"))
     errors.extend(validate(graph_doc, graph_schema, "SPACE-GRAPH"))
     errors.extend(validate(lattice_doc, lattice_schema, "TEMPORAL-LATTICE"))
+    errors.extend(validate(experiment_plan, plan_schema, "EXPERIMENT-PLAN"))
     for i, event in enumerate(events):
         errors.extend(validate(event, event_schema, f"EVENTS[{i}]"))
 
@@ -81,6 +85,12 @@ def main() -> int:
     except CausalProcessorError as exc:
         errors.append(f"CAUSAL-PROCESSOR:{exc}")
         processor = None
+
+    try:
+        selector = ExperimentSelector(experiment_plan)
+    except ExperimentSelectorError as exc:
+        errors.append(f"EXPERIMENT-SELECTOR:{exc}")
+        selector = None
 
     if gap.get("missing_edge", {}).get("status") == "OPEN" and gap.get("cause_found") is True:
         errors.append("integrity: cause_found=true while missing_edge.status=OPEN")
@@ -142,6 +152,22 @@ def main() -> int:
     if not verifier_states:
         errors.append("4D integrity: no future independent verification gate is represented")
 
+    # Active-discovery integrity: planner state is advisory only. It may rank tests,
+    # but it may not itself assert material or verified causal state.
+    if "biological evidence" not in experiment_plan.get("disclaimer", ""):
+        errors.append("experiment-plan integrity: disclaimer must state planning priors are not biological evidence")
+
+    if selector is not None and processor is not None:
+        projection = processor.project()
+        planned_hypotheses = set(experiment_plan.get("hypotheses", {}))
+        open_processor_hypotheses = set(projection.open_hypotheses)
+        missing_open = sorted(planned_hypotheses - open_processor_hypotheses)
+        if missing_open:
+            errors.append(
+                "experiment-plan integrity: planner includes hypotheses not open in processor: "
+                + ", ".join(missing_open)
+            )
+
     if errors:
         print("CAUSAL-DNA VALIDATION: FAIL")
         for err in errors:
@@ -151,6 +177,7 @@ def main() -> int:
     summary = graph.summary()
     lattice_summary = lattice.summary()
     projection = processor.project() if processor is not None else None
+    ranked = selector.rank() if selector is not None else []
 
     print("CAUSAL-DNA VALIDATION: PASS")
     print(f"- causal edges: {len(edges)}")
@@ -174,6 +201,17 @@ def main() -> int:
         print(f"- causal processor generation: {projection.generation}")
         print("- processor open hypotheses: " + ", ".join(projection.open_hypotheses))
         print("- processor rejected hypotheses: " + ", ".join(projection.rejected_hypotheses))
+    if ranked:
+        print(f"- experiment candidates: {len(ranked)}")
+        print(
+            "- max expected information gain: "
+            f"{ranked[0].experiment_id} ({ranked[0].expected_information_gain_bits:.4f} bits)"
+        )
+        efficient = selector.best(objective="gain_per_cost")
+        print(
+            "- max information gain per cost: "
+            f"{efficient.experiment_id} ({efficient.utility_per_cost:.4f} bits/cost-unit)"
+        )
     return 0
 
 
