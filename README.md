@@ -41,7 +41,7 @@ See [`protocol/causal-proof-v0.1.md`](protocol/causal-proof-v0.1.md).
 
 ## Three-space causal graph
 
-CAUSAL-DNA now also models the **transition of causal knowledge** through three graph spaces:
+CAUSAL-DNA models the **transition of causal knowledge** through three graph spaces:
 
 ```text
 PROJECTIVE
@@ -82,6 +82,33 @@ python -m causal_dna.space_graph \
   cases/CDNA-001-rs1421085.space-graph.json \
   --mermaid-out /tmp/cdna-001.mmd
 ```
+
+## 4D causal lattice
+
+The three-space graph is extended with explicit **time, evidence strength, and observer role**:
+
+```text
+State = Space × Time × Evidence × Observer
+```
+
+The temporal axis distinguishes:
+
+```text
+past    = already observed evidence
+present = current unresolved causal boundary
+future  = planned tests / possible resolutions
+```
+
+A future hypothesis cannot be represented as a material fact. The current CDNA-001 lattice therefore stops at a future independent Bardo resolution gate while `GAP-001` remains open.
+
+Implementation:
+
+- [`causal_dna/temporal_lattice.py`](causal_dna/temporal_lattice.py) — 4D lattice engine;
+- [`schemas/temporal-lattice.schema.json`](schemas/temporal-lattice.schema.json) — lattice contract;
+- [`cases/CDNA-001-rs1421085.temporal-lattice.json`](cases/CDNA-001-rs1421085.temporal-lattice.json) — first lattice instance;
+- [`docs/4d-causal-lattice.md`](docs/4d-causal-lattice.md) — semantics and invariants.
+
+The observer axis separates `model`, `experiment`, and `independent_verifier`, so the same component that proposes a mechanism cannot silently certify it as established.
 
 ## First case: CDNA-001 — rs1421085
 
@@ -143,4 +170,4 @@ CAUSAL-DNA is a computational and evidence-mapping research project. It does **n
 
 ---
 
-**Status:** bootstrap / protocol v0.1 + three-space graph v0.1
+**Status:** bootstrap / protocol v0.1 + three-space graph v0.1 + 4D causal lattice v0.1
