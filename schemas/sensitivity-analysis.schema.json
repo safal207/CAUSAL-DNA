@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/sensitivity-analysis.schema.json",
+  "title": "CAUSAL-DNA strategy sensitivity analysis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_id",
+    "case_id",
+    "disclaimer",
+    "budget",
+    "max_depth",
+    "objective",
+    "simplex_total_units",
+    "min_units_per_hypothesis",
+    "first_step_robust_threshold",
+    "policy_signature_robust_threshold"
+  ],
+  "properties": {
+    "analysis_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "disclaimer": {"type": "string", "minLength": 1},
+    "budget": {"type": "number", "exclusiveMinimum": 0},
+    "max_depth": {"type": "integer", "minimum": 1, "maximum": 3},
+    "objective": {"enum": ["information_gain", "gain_per_cost"]},
+    "simplex_total_units": {"type": "integer", "minimum": 1, "maximum": 100},
+    "min_units_per_hypothesis": {"type": "integer", "minimum": 1},
+    "first_step_robust_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+    "policy_signature_robust_threshold": {"type": "number", "minimum": 0, "maximum": 1}
+  }
+}
