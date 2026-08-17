@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/causal-event.schema.json",
+  "title": "CAUSAL-DNA Causal Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id","generation","event_type","subject","observer","evidence_refs"],
+  "properties": {
+    "event_id": {"type":"string","minLength":1},
+    "generation": {"type":"integer","minimum":0},
+    "event_type": {"enum":["observation","perturbation","verification","model_update","hypothesis_opened","hypothesis_rejected","hypothesis_superseded"]},
+    "subject": {"type":"string","minLength":1},
+    "observer": {"enum":["model","experiment","independent_verifier"]},
+    "evidence_refs": {"type":"array","items":{"type":"string"}},
+    "supersedes_event_id": {"type":["string","null"]},
+    "payload": {"type":"object"}
+  }
+}
