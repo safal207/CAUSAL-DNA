@@ -53,6 +53,25 @@ class JointAssayFrontierTests(unittest.TestCase):
         for experiment_id in observed:
             self.assertEqual(observed[experiment_id], expected_states)
 
+    def test_linked_assays_share_axis_settings(self):
+        settings = {
+            "E1_ARID5B_OCCUPANCY": (0.75, 0.7),
+            "E3_ALLELE_SNATAC": (1.25, 0.85),
+            "E5_MATCHED_MULTIOMIC": (1.0, 1.0),
+        }
+        modified = self.analyzer._modified_plan(settings)
+        by_id = {item["experiment_id"]: item for item in modified["experiments"]}
+        self.assertEqual(by_id["E1_ARID5B_OCCUPANCY"]["cost"], 0.75)
+        self.assertEqual(by_id["E2_CUX1_OCCUPANCY"]["cost"], 0.75)
+        self.assertEqual(by_id["E3_ALLELE_SNATAC"]["cost"], 1.875)
+        self.assertEqual(by_id["E4_CAPTURE_C"]["cost"], 1.875)
+
+    def test_invalid_link_source_is_rejected(self):
+        config = copy.deepcopy(self.config)
+        config["linked_settings"]["E2_CUX1_OCCUPANCY"] = "E2_CUX1_OCCUPANCY"
+        with self.assertRaises(JointAssayFrontierError):
+            JointAssayFrontierAnalyzer(self.plan, config)
+
     def test_causal_mutation_field_is_rejected(self):
         config = copy.deepcopy(self.config)
         config["cause_found"] = True
