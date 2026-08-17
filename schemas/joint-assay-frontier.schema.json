@@ -14,6 +14,7 @@
     "prior_simplex_total_units",
     "prior_min_units_per_hypothesis",
     "joint_experiment_ids",
+    "linked_settings",
     "cost_multiplier_grid",
     "reliability_grid",
     "outcome_probability_max_transfer",
@@ -36,6 +37,10 @@
       "minItems": 2,
       "uniqueItems": true,
       "items": {"type": "string", "minLength": 1}
+    },
+    "linked_settings": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "minLength": 1}
     },
     "cost_multiplier_grid": {
       "type": "array",
