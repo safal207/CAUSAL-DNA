@@ -1,5 +1,7 @@
 #!/usr/bin/env Rscript
 
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 2) {
   stop("usage: inspect_vph_rdata.R <input.rdata> <output-dir>")
@@ -8,7 +10,7 @@ input <- args[[1]]
 outdir <- args[[2]]
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
-env <- new.env(parent = emptyenv())
+env <- new.env(parent = baseenv())
 loaded <- load(input, envir = env)
 
 rows <- list()
@@ -27,7 +29,6 @@ for (name in loaded) {
 inv <- do.call(rbind, rows)
 write.csv(inv, file.path(outdir, "object_inventory.csv"), row.names = FALSE)
 
-# Write schema/preview for tabular objects only. Avoid dumping expression matrices.
 preview_lines <- c("# VPH RData object inspection", "")
 for (name in loaded) {
   obj <- get(name, envir = env)
@@ -56,7 +57,6 @@ for (name in loaded) {
     cellshape <- nr >= 1000 && nr <= 100000 && nc <= 100
     if (keyword || cellshape) {
       meta_candidates <- c(meta_candidates, name)
-      # Safe to export only tables with <=100 columns.
       if (nc <= 100) {
         out <- as.data.frame(obj)
         out$.rowname <- rownames(obj)
@@ -71,6 +71,3 @@ cat("Loaded objects:\n")
 print(inv)
 cat("\nMetadata candidates:\n")
 print(meta_candidates)
-
-# local null-coalescing helper must be defined last only for future calls; R evaluates functions lazily,
-# but `%||%` above is an operator and therefore needs definition before execution. Kept here only as a note.
