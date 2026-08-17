@@ -88,6 +88,72 @@ E1 phase: cost multiplier 0.60–1.60
 
 Across the full prior grid the E5 region is substantially smaller. For example, at transfer 0.0 and reliability 1.0, E5 is the dominant prior-grid winner only at multiplier 0.40; at 0.50 and above E1 dominates.
 
+## Minimax-regret boundary layer
+
+A second layer asks a different question: which first action minimizes the largest interval regret across alternative planning priors?
+
+`causal_dna/phase_boundary.py` scans:
+
+```text
+E5 reliability:       0.40 .. 1.00
+E5 cost multiplier:   0.50, 0.75, 1.00, 1.25, 1.50, 2.00
+probability transfer: 0.00, 0.10, 0.20
+priors per cell:       165
+phase cells:           126
+prior-cell states:     20,790
+```
+
+The robust scan again contains only two winner phases:
+
+```text
+E1_ARID5B_OCCUPANCY  = 61 / 126 cells
+E5_MATCHED_MULTIOMIC = 65 / 126 cells
+```
+
+All **73 adjacent decision-boundary edges** are `E1 <-> E5` switches. E3 and E4 never become minimax-regret winners on this one-step surface.
+
+### E5 winning cost ceiling on the sampled minimax grid
+
+`none` means E5 never wins at a sampled cost. `2.00x+` means E5 still wins at the largest sampled cost, so the true switch — if one exists — lies beyond the scan.
+
+At transfer `0.00`:
+
+```text
+r=0.40 none
+r=0.50 none
+r=0.60 none
+r=0.70 none
+r=0.80 none
+r=0.90 0.50x
+r=1.00 1.50x
+```
+
+At transfer `0.10`:
+
+```text
+r=0.40 1.50x
+r=0.50 2.00x+
+r=0.60 2.00x+
+r=0.70 2.00x+
+r=0.80 2.00x+
+r=0.90 2.00x+
+r=1.00 2.00x+
+```
+
+At transfer `0.20`:
+
+```text
+r=0.40 none
+r=0.50 none
+r=0.60 none
+r=0.70 none
+r=0.80 2.00x+
+r=0.90 2.00x+
+r=1.00 2.00x+
+```
+
+The non-monotonic pattern across transfer radii is a property of this discrete interval-regret uncertainty model. It must not be extrapolated into a smooth continuous law without a denser uncertainty-set analysis.
+
 ## Cross-objective interpretation
 
 CAUSAL-DNA now preserves several intentionally different decision views:
@@ -99,9 +165,23 @@ best depth-3 adaptive policy               -> E3 -> E5 / E1
 minimax regret over planning priors        -> E5
 distributional minimax interval regret     -> E5 (narrow margin)
 conservative efficiency phase map          -> E1 except low-cost/high-reliability E5 region
+minimax-regret phase map                    -> E1 / E5 boundary depends strongly on reliability and uncertainty radius
 ```
 
-There is therefore no single context-free "best experiment". The recommended first action is a function of the decision objective and the uncertainty/cost regime.
+There is therefore no single context-free "best experiment". The recommended first action is a function of:
+
+```text
+BestAction = f(
+  objective,
+  planning horizon,
+  prior,
+  outcome uncertainty,
+  assay reliability,
+  cost
+)
+```
+
+A particularly useful negative result is that **E3 is the best depth-3 first move but never wins either one-step phase surface**. Planning horizon is therefore itself load-bearing context and must be preserved in any recommendation record.
 
 ## Scientific status
 
