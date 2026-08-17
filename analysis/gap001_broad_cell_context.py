@@ -67,7 +67,6 @@ def pct(n, d):
 
 
 def make_frame(sample, sex, g):
-    f = pd.DataFrame({"sample": sample, "sex": sex})
     n = len(g["Irx3"])
     f = pd.DataFrame({"sample": [sample] * n, "sex": [sex] * n})
     f["irx3"] = g["Irx3"] > 0
