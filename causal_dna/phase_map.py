@@ -20,11 +20,9 @@ from __future__ import annotations
 import copy
 from collections import Counter
 from dataclasses import dataclass
-from statistics import fmean
 from typing import Any
 
 from .distributional_robust import (
-    DistributionalRobustError,
     _apply,
     _entropy,
     _probability_scenarios,
@@ -239,42 +237,94 @@ class PhaseBoundaryAnalyzer:
             break_even_absolute_cost=absolute_cost,
         )
 
+    def _competitor_utilities(
+        self,
+        prior: dict[str, float],
+        *,
+        max_transfer: float,
+    ) -> dict[str, float]:
+        target_id = self.config["target_experiment_id"]
+        reliability = float(self.config["competitor_reliability"])
+        utilities: dict[str, float] = {"STOP": 0.0}
+        for experiment in self.plan["experiments"]:
+            if experiment["experiment_id"] == target_id:
+                continue
+            gain = self.conservative_gain(
+                prior,
+                experiment,
+                reliability=reliability,
+                max_transfer=max_transfer,
+            )
+            utilities[experiment["experiment_id"]] = gain / float(experiment["cost"])
+        return utilities
+
     def analyze(self) -> PhaseMapResult:
         prior_analyzer = StrategySensitivityAnalyzer(self.plan, self.sensitivity_config)
         priors = list(prior_analyzer.prior_grid())
         if not priors:
             raise PhaseMapError("prior grid is empty")
         baseline_prior = copy.deepcopy(self.plan["hypotheses"])
+        target_id = self.config["target_experiment_id"]
+        target = self._experiment(target_id)
+        target_cost = float(target["cost"])
 
         points: list[PhasePoint] = []
         for max_transfer in self.config["outcome_probability_max_transfers"]:
+            max_transfer = float(max_transfer)
+
+            # Competitor gains do not depend on target reliability or target cost.
+            # Cache them once per transfer instead of recomputing them for every
+            # point on the target cost axis.
+            baseline_competitors = self._competitor_utilities(
+                baseline_prior,
+                max_transfer=max_transfer,
+            )
+            competitor_utilities_by_prior = [
+                self._competitor_utilities(prior, max_transfer=max_transfer)
+                for prior in priors
+            ]
+
             for reliability in self.config["target_reliabilities"]:
-                for cost_multiplier in self.config["target_cost_multipliers"]:
-                    baseline_winner = self._winner(
-                        self._utilities(
-                            baseline_prior,
-                            target_cost_multiplier=float(cost_multiplier),
-                            target_reliability=float(reliability),
-                            max_transfer=float(max_transfer),
-                        )
+                reliability = float(reliability)
+                baseline_target_gain = self.conservative_gain(
+                    baseline_prior,
+                    target,
+                    reliability=reliability,
+                    max_transfer=max_transfer,
+                )
+                target_gains_by_prior = [
+                    self.conservative_gain(
+                        prior,
+                        target,
+                        reliability=reliability,
+                        max_transfer=max_transfer,
                     )
+                    for prior in priors
+                ]
+
+                for cost_multiplier in self.config["target_cost_multipliers"]:
+                    cost_multiplier = float(cost_multiplier)
+                    effective_target_cost = target_cost * cost_multiplier
+
+                    baseline_utilities = dict(baseline_competitors)
+                    baseline_utilities[target_id] = baseline_target_gain / effective_target_cost
+                    baseline_winner = self._winner(baseline_utilities)
+
                     counts: Counter[str] = Counter()
-                    for prior in priors:
-                        winner = self._winner(
-                            self._utilities(
-                                prior,
-                                target_cost_multiplier=float(cost_multiplier),
-                                target_reliability=float(reliability),
-                                max_transfer=float(max_transfer),
-                            )
-                        )
-                        counts[winner] += 1
+                    for competitor_utilities, target_gain in zip(
+                        competitor_utilities_by_prior,
+                        target_gains_by_prior,
+                    ):
+                        utilities = dict(competitor_utilities)
+                        utilities[target_id] = target_gain / effective_target_cost
+                        counts[self._winner(utilities)] += 1
+
                     dominant_winner, dominant_count = counts.most_common(1)[0]
                     points.append(
                         PhasePoint(
-                            target_cost_multiplier=float(cost_multiplier),
-                            target_reliability=float(reliability),
-                            outcome_probability_max_transfer=float(max_transfer),
+                            target_cost_multiplier=cost_multiplier,
+                            target_reliability=reliability,
+                            outcome_probability_max_transfer=max_transfer,
                             baseline_winner=baseline_winner,
                             dominant_winner=dominant_winner,
                             dominant_support=dominant_count / len(priors),
@@ -295,7 +345,7 @@ class PhaseBoundaryAnalyzer:
         return PhaseMapResult(
             analysis_id=self.config["analysis_id"],
             prior_points=len(priors),
-            target_experiment_id=self.config["target_experiment_id"],
+            target_experiment_id=target_id,
             phase_points=tuple(points),
             break_even_points=tuple(break_evens),
         )
