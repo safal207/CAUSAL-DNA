@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/gap-status.schema.json",
+  "title": "CAUSAL-DNA Research Gap Status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "gap_id",
+    "updated",
+    "question",
+    "boundary_conditions",
+    "missing_edge",
+    "hypotheses",
+    "demoted_candidates",
+    "cell_of_action",
+    "highest_information_next_test",
+    "cause_found"
+  ],
+  "properties": {
+    "case_id": { "type": "string", "pattern": "^CDNA-[0-9]{3}$" },
+    "gap_id": { "type": "string", "pattern": "^GAP-[0-9]{3}$" },
+    "updated": { "type": "string", "format": "date" },
+    "question": { "type": "string", "minLength": 1 },
+    "boundary_conditions": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["state", "claim", "source_pmids"],
+        "properties": {
+          "state": { "type": "string", "minLength": 1 },
+          "claim": { "type": "string", "minLength": 1 },
+          "source_pmids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[0-9]+$" }
+          }
+        }
+      }
+    },
+    "missing_edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "missing", "status"],
+      "properties": {
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "missing": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["OPEN", "RESOLVED", "REJECTED"] }
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "status", "support", "against", "next_test"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^H[0-9]+[A-Za-z]?$" },
+          "name": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "minLength": 1 },
+          "support": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "against": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "next_test": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "demoted_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "reason"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "cell_of_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "note"],
+      "properties": {
+        "status": { "type": "string", "minLength": 1 },
+        "note": { "type": "string", "minLength": 1 }
+      }
+    },
+    "highest_information_next_test": { "type": "string", "minLength": 1 },
+    "cause_found": { "type": "boolean" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "cause_found": { "const": true }
+        },
+        "required": ["cause_found"]
+      },
+      "then": {
+        "properties": {
+          "missing_edge": {
+            "properties": {
+              "status": { "const": "RESOLVED" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
