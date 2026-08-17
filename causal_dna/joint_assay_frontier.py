@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Joint adversarial assay frontier for CAUSAL-DNA planning.
 
-This layer varies cost and reliability for several experiments at the same time,
-then evaluates first-step minimax interval regret across a deterministic prior
-grid. It also attaches first-step robust regret to short-horizon policy
+This layer varies cost and reliability for several experiment axes at the same
+time, then evaluates first-step minimax interval regret across a deterministic
+prior grid. Closely matched experiments may explicitly share one setting axis so
+a fixed symmetric competitor does not receive an artificial advantage.
+
+The layer also attaches first-step robust regret to short-horizon policy
 frontiers so cost, information, regret, and planning horizon can be inspected
 together.
 
@@ -14,7 +17,6 @@ causal confidence.
 from __future__ import annotations
 
 import copy
-import math
 from collections import Counter
 from dataclasses import dataclass
 from itertools import product
@@ -100,6 +102,7 @@ class JointAssayFrontierAnalyzer:
             item["experiment_id"]: item for item in self.plan["experiments"]
         }
         self.joint_ids = tuple(self.config.get("joint_experiment_ids", ()))
+        self.linked_settings = dict(self.config.get("linked_settings", {}))
         self.assert_valid()
         self._priors = tuple(self.prior_grid())
         self._gain_cache: dict[tuple[int, str, float], tuple[float, float]] = {}
@@ -128,6 +131,22 @@ class JointAssayFrontierAnalyzer:
             raise JointAssayFrontierError(
                 "unknown joint experiments: " + ", ".join(sorted(unknown))
             )
+
+        if not isinstance(self.linked_settings, dict):
+            raise JointAssayFrontierError("linked_settings must be an object")
+        for target_id, source_id in self.linked_settings.items():
+            if target_id not in self.experiment_by_id:
+                raise JointAssayFrontierError(f"linked target is unknown: {target_id}")
+            if source_id not in self.joint_ids:
+                raise JointAssayFrontierError(
+                    f"linked source must be a joint axis: {source_id}"
+                )
+            if target_id in self.joint_ids:
+                raise JointAssayFrontierError(
+                    f"joint axis cannot also be a linked target: {target_id}"
+                )
+            if target_id == source_id:
+                raise JointAssayFrontierError("linked setting cannot point to itself")
 
         self._validate_grid("cost_multiplier_grid", lower=0.0, upper=None, strict=True)
         self._validate_grid("reliability_grid", lower=0.0, upper=1.0, strict=False)
@@ -257,6 +276,18 @@ class JointAssayFrontierAnalyzer:
         self._gain_cache[key] = interval
         return interval
 
+    def _setting_for_experiment(
+        self,
+        experiment_id: str,
+        settings: dict[str, tuple[float, float]],
+    ) -> tuple[float, float]:
+        if experiment_id in settings:
+            return settings[experiment_id]
+        source_id = self.linked_settings.get(experiment_id)
+        if source_id is not None:
+            return settings[source_id]
+        return 1.0, 1.0
+
     def _cell_summaries(
         self,
         settings: dict[str, tuple[float, float]],
@@ -271,10 +302,9 @@ class JointAssayFrontierAnalyzer:
             point_lower: dict[str, float] = {}
             point_upper: dict[str, float] = {}
             for experiment_id, experiment in self.experiment_by_id.items():
-                if experiment_id in settings:
-                    cost_multiplier, reliability = settings[experiment_id]
-                else:
-                    cost_multiplier, reliability = 1.0, 1.0
+                cost_multiplier, reliability = self._setting_for_experiment(
+                    experiment_id, settings
+                )
                 gain_lower, gain_upper = self._gain_interval(
                     prior_index, experiment_id, reliability
                 )
@@ -388,9 +418,14 @@ class JointAssayFrontierAnalyzer:
         plan = copy.deepcopy(self.plan)
         for experiment in plan["experiments"]:
             experiment_id = experiment["experiment_id"]
-            if experiment_id not in settings:
+            cost_multiplier, reliability = self._setting_for_experiment(
+                experiment_id, settings
+            )
+            if (
+                experiment_id not in settings
+                and experiment_id not in self.linked_settings
+            ):
                 continue
-            cost_multiplier, reliability = settings[experiment_id]
             experiment["cost"] = float(experiment["cost"]) * cost_multiplier
             for outcome in experiment["outcomes"]:
                 outcome["posterior_weights"] = _reliability_adjusted_multipliers(
