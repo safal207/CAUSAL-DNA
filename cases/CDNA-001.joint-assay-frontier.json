@@ -12,6 +12,10 @@
     "E3_ALLELE_SNATAC",
     "E5_MATCHED_MULTIOMIC"
   ],
+  "linked_settings": {
+    "E2_CUX1_OCCUPANCY": "E1_ARID5B_OCCUPANCY",
+    "E4_CAPTURE_C": "E3_ALLELE_SNATAC"
+  },
   "cost_multiplier_grid": [0.75, 1.0, 1.25],
   "reliability_grid": [0.7, 0.85, 1.0],
   "outcome_probability_max_transfer": 0.1,
