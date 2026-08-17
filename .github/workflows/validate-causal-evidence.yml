@@ -9,6 +9,8 @@ on:
     paths:
       - 'cases/**.json'
       - 'schemas/**.json'
+      - 'causal_dna/**.py'
+      - 'tests/**.py'
       - 'analysis/validate_repository.py'
       - 'analysis/requirements-validation.txt'
       - '.github/workflows/validate-causal-evidence.yml'
@@ -16,8 +18,11 @@ on:
     paths:
       - 'cases/**.json'
       - 'schemas/**.json'
+      - 'causal_dna/**.py'
+      - 'tests/**.py'
       - 'analysis/validate_repository.py'
       - 'analysis/requirements-validation.txt'
+      - '.github/workflows/validate-causal-evidence.yml'
 
 permissions:
   contents: read
@@ -34,5 +39,14 @@ jobs:
           cache-dependency-path: analysis/requirements-validation.txt
       - name: Install validation dependencies
         run: python -m pip install -r analysis/requirements-validation.txt
+      - name: Run three-space graph unit tests
+        run: python -m unittest discover -s tests -v
       - name: Validate machine-readable evidence
         run: python analysis/validate_repository.py
+      - name: Show three-space graph summary
+        run: |
+          python -m causal_dna.space_graph \
+            cases/CDNA-001-rs1421085.space-graph.json \
+            --start P_H3_ACCESS \
+            --end M_IRX3_UP \
+            --contours
