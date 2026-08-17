@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/space-graph.schema.json",
+  "title": "CAUSAL-DNA Three-Space Graph",
+  "description": "Projective -> Bardo -> material graph for hypotheses, unresolved transitions and evidence-backed observations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["graph_id", "case_id", "version", "semantics", "nodes", "edges"],
+  "properties": {
+    "graph_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "pattern": "^CDNA-[0-9]{3}$"},
+    "version": {"type": "string", "minLength": 1},
+    "semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projective", "bardo", "material"],
+      "properties": {
+        "projective": {"type": "string", "minLength": 1},
+        "bardo": {"type": "string", "minLength": 1},
+        "material": {"type": "string", "minLength": 1}
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/node"}
+    },
+    "edges": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/edge"}
+    }
+  },
+  "$defs": {
+    "sourceRef": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable pointer to a ledger edge, hypothesis, result artifact, PMID, dataset, run or other provenance object."
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "species": {"type": ["string", "null"]},
+        "tissue": {"type": ["string", "null"]},
+        "cell_type": {"type": ["string", "null"]},
+        "sex": {"type": ["string", "null"]},
+        "developmental_state": {"type": ["string", "null"]},
+        "environment": {"type": ["string", "null"]}
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "space", "kind", "state", "evidence_refs"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Z0-9_-]+$"},
+        "label": {"type": "string", "minLength": 1},
+        "space": {"type": "string", "enum": ["projective", "bardo", "material"]},
+        "kind": {
+          "type": "string",
+          "enum": [
+            "variant", "hypothesis", "mediator", "experiment", "gate",
+            "measurement", "cell_state", "circuit_state", "phenotype",
+            "evidence", "question", "boundary"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "proposed", "planned", "competing", "unresolved", "observed",
+            "perturbed", "rescued", "established", "rejected", "superseded"
+          ]
+        },
+        "context": {"$ref": "#/$defs/context"},
+        "hypothesis_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/sourceRef"}
+        },
+        "resolution": {
+          "type": "string",
+          "enum": ["open", "materialized", "rejected", "superseded"]
+        },
+        "resolved_by": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/sourceRef"}
+        },
+        "resolution_reason": {"type": "string", "minLength": 1},
+        "notes": {"type": "string"}
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "relation", "status", "evidence_refs"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Z0-9_-]+$"},
+        "from": {"type": "string", "minLength": 1},
+        "to": {"type": "string", "minLength": 1},
+        "relation": {
+          "type": "string",
+          "enum": [
+            "projects_to", "proposes", "enters_bardo", "competes_with",
+            "refines", "tested_by", "bounded_by", "supports", "contradicts",
+            "materializes_as", "causes", "perturbs", "feeds_back",
+            "generates_hypothesis", "reopens", "preserves"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["planned", "open", "supported", "perturbed", "rescued", "established", "rejected", "superseded"]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/sourceRef"}
+        },
+        "guard": {"type": "string", "minLength": 1},
+        "notes": {"type": "string"}
+      }
+    }
+  }
+}
