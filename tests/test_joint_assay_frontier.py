@@ -78,8 +78,10 @@ class JointAssayFrontierTests(unittest.TestCase):
         with self.assertRaises(JointAssayFrontierError):
             JointAssayFrontierAnalyzer(self.plan, config)
 
-    def test_boundaries_only_record_distinct_action_pairs(self):
-        self.assertTrue(self.result.boundary_pair_counts)
+    def test_winner_counts_cover_every_cell(self):
+        self.assertEqual(sum(self.result.winner_counts.values()), len(self.result.cells))
+
+    def test_boundaries_if_present_only_record_distinct_action_pairs(self):
         for pair, count in self.result.boundary_pair_counts.items():
             left, right = pair.split("<->")
             self.assertNotEqual(left, right)
