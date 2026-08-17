@@ -2,8 +2,8 @@
 """Validate CAUSAL-DNA machine-readable evidence and research-gap state.
 
 This gate checks structure, cross-record identifiers, three-space graph
-integrity, and research-integrity invariants. It does not judge whether a
-biological claim is true.
+integrity, four-dimensional temporal-lattice integrity, and research-integrity
+invariants. It does not judge whether a biological claim is true.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from causal_dna.space_graph import SpaceGraph  # noqa: E402
+from causal_dna.temporal_lattice import TemporalLattice  # noqa: E402
 
 
 def load(path: Path):
@@ -41,10 +42,12 @@ def main() -> int:
     edge_schema = load(ROOT / "schemas" / "causal-edge.schema.json")
     gap_schema = load(ROOT / "schemas" / "gap-status.schema.json")
     graph_schema = load(ROOT / "schemas" / "space-graph.schema.json")
+    lattice_schema = load(ROOT / "schemas" / "temporal-lattice.schema.json")
 
     edges = load(ROOT / "cases" / "CDNA-001-rs1421085.edges.json")
     gap = load(ROOT / "cases" / "CDNA-001-GAP-001.status.json")
     graph_doc = load(ROOT / "cases" / "CDNA-001-rs1421085.space-graph.json")
+    lattice_doc = load(ROOT / "cases" / "CDNA-001-rs1421085.temporal-lattice.json")
 
     if not isinstance(edges, list) or not edges:
         errors.append("edge ledger must be a non-empty JSON array")
@@ -59,24 +62,23 @@ def main() -> int:
 
     errors.extend(validate(gap, gap_schema, "GAP-001"))
     errors.extend(validate(graph_doc, graph_schema, "SPACE-GRAPH"))
+    errors.extend(validate(lattice_doc, lattice_schema, "TEMPORAL-LATTICE"))
 
     graph = SpaceGraph(graph_doc)
     errors.extend(f"SPACE-GRAPH:{err}" for err in graph.errors())
+
+    lattice = TemporalLattice(lattice_doc)
+    errors.extend(f"TEMPORAL-LATTICE:{err}" for err in lattice.errors())
 
     # Integrity invariant: an open missing edge cannot coexist with cause_found=true.
     if gap.get("missing_edge", {}).get("status") == "OPEN" and gap.get("cause_found") is True:
         errors.append("integrity: cause_found=true while missing_edge.status=OPEN")
 
-    # Integrity invariant: every active hypothesis needs either supporting evidence
-    # or an explicit next test; the schema guarantees next_test, this guards empty support
-    # from being mistaken for established evidence in status wording.
     for hyp in gap.get("hypotheses", []):
         status = str(hyp.get("status", "")).upper()
         if "ESTABLISHED" in status and not hyp.get("support"):
             errors.append(f"integrity: {hyp.get('id')} says ESTABLISHED but has no support records")
 
-    # Three-space integrity: projective hypotheses referenced by GAP-001 must have
-    # an explicit Bardo representation if they are present in the graph.
     projective_hypotheses = {
         ref
         for node in graph.nodes_in("projective")
@@ -95,7 +97,6 @@ def main() -> int:
             + ", ".join(missing_bardo)
         )
 
-    # GAP-001 remains open, so its integration gate must remain unresolved/open.
     if gap.get("missing_edge", {}).get("status") == "OPEN":
         integration_gate = graph.node("B_INTEGRATION_GATE")
         if integration_gate.get("resolution", "open") != "open":
@@ -103,8 +104,14 @@ def main() -> int:
                 "three-space integrity: GAP-001 is OPEN but B_INTEGRATION_GATE is resolved"
             )
 
-    # The material downstream boundary must be evidence-backed and reachable by
-    # at least one explicit projective -> Bardo -> material contour.
+        # In 4D, an open gap must remain outside material future fact.
+        future_material = lattice.states_at(space="material", time="future")
+        if future_material:
+            errors.append(
+                "4D integrity: GAP-001 is OPEN but future material states already exist: "
+                + ", ".join(s["id"] for s in future_material)
+            )
+
     contour_sources = [
         "P_H1_ARID5B",
         "P_H2_CUX1",
@@ -121,6 +128,13 @@ def main() -> int:
                 f"three-space integrity: no projective→Bardo→material contour from {source} to M_IRX3_UP"
             )
 
+    # Observer separation: planned independent verification may inspect evidence,
+    # but it must not masquerade as a completed experimental observation.
+    verifier_states = lattice.states_at(time="future")
+    verifier_states = [s for s in verifier_states if s.get("observer") == "independent_verifier"]
+    if not verifier_states:
+        errors.append("4D integrity: no future independent verification gate is represented")
+
     if errors:
         print("CAUSAL-DNA VALIDATION: FAIL")
         for err in errors:
@@ -128,6 +142,7 @@ def main() -> int:
         return 1
 
     summary = graph.summary()
+    lattice_summary = lattice.summary()
     print("CAUSAL-DNA VALIDATION: PASS")
     print(f"- causal edges: {len(edges)}")
     print(f"- hypotheses: {len(gap.get('hypotheses', []))}")
@@ -140,9 +155,13 @@ def main() -> int:
         f"material={summary['nodes_by_space']['material']}"
     )
     print(f"- open Bardo states: {summary['open_bardo']}")
+    print("- materialization frontier: " + ", ".join(summary["materialization_frontier"]))
+    print(f"- 4D lattice states: {lattice_summary['states']}")
+    print(f"- 4D lattice transitions: {lattice_summary['transitions']}")
+    print("- 4D future frontier: " + ", ".join(lattice_summary["future_frontier"]))
     print(
-        "- materialization frontier: "
-        + ", ".join(summary["materialization_frontier"])
+        "- 4D materialized history: "
+        + ", ".join(lattice_summary["materialized_history"])
     )
     return 0
 
