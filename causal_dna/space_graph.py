@@ -226,6 +226,43 @@ class SpaceGraph:
             "materialization_frontier": [n["id"] for n in self.materialization_frontier()],
         }
 
+    @staticmethod
+    def _mermaid_label(value: str) -> str:
+        return value.replace("\\", "\\\\").replace('"', "'").replace("\n", " ")
+
+    def to_mermaid(self) -> str:
+        """Render the graph from source-of-truth JSON as Mermaid flowchart text."""
+        self.assert_valid()
+        lines = ["flowchart LR"]
+        titles = {
+            "projective": "Projective space",
+            "bardo": "Bardo transition space",
+            "material": "Material space",
+        }
+
+        for space in SPACES:
+            lines.append(f"  subgraph {space.upper()}[\"{titles[space]}\"]")
+            for node in self.nodes_in(space):
+                node_id = node["id"]
+                label = self._mermaid_label(node["label"])
+                if space == "projective":
+                    rendered = f'{node_id}[\"{label}\"]'
+                elif space == "bardo":
+                    rendered = f'{node_id}{{\"{label}\"}}'
+                else:
+                    rendered = f'{node_id}([\"{label}\"])'
+                lines.append(f"    {rendered}")
+            lines.append("  end")
+
+        for edge in self.edges:
+            relation = self._mermaid_label(edge["relation"])
+            status = self._mermaid_label(edge["status"])
+            lines.append(
+                f'  {edge["from"]} -->|\"{relation} · {status}\"| {edge["to"]}'
+            )
+
+        return "\n".join(lines) + "\n"
+
 
 def _format_summary(summary: dict[str, Any]) -> str:
     return json.dumps(summary, indent=2, ensure_ascii=False)
@@ -237,6 +274,8 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser.add_argument("--start")
     parser.add_argument("--end")
     parser.add_argument("--contours", action="store_true")
+    parser.add_argument("--mermaid", action="store_true")
+    parser.add_argument("--mermaid-out", type=Path)
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     graph = SpaceGraph.load(args.graph)
@@ -251,6 +290,15 @@ def main(argv: Iterable[str] | None = None) -> int:
         for path in paths:
             print(" -> ".join(path.node_ids))
             print("spaces:", " -> ".join(path.compressed_spaces))
+
+    if args.mermaid or args.mermaid_out:
+        rendered = graph.to_mermaid()
+        if args.mermaid_out:
+            args.mermaid_out.parent.mkdir(parents=True, exist_ok=True)
+            args.mermaid_out.write_text(rendered, encoding="utf-8")
+            print(f"mermaid: {args.mermaid_out}")
+        else:
+            print(rendered, end="")
 
     return 0
 
