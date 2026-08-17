@@ -13,7 +13,8 @@ from dataclasses import dataclass
 from math import comb
 from typing import Any, Iterator
 
-from .strategy_planner import StrategyPlanner, StrategyResult
+from .adaptive_replanner import entropy_bits
+from .strategy_planner import Policy, StrategyPlanner, StrategyResult
 
 
 class SensitivityError(ValueError):
@@ -42,12 +43,18 @@ def grid_size(total_units: int, parts: int, min_units: int = 1) -> int:
     return comb(remaining + parts - 1, parts - 1)
 
 
-def policy_signature(result: StrategyResult) -> str:
-    branches = ",".join(
+def _signature(first_experiment_id: str, branches: dict[str, str | None]) -> str:
+    if first_experiment_id == "STOP":
+        return "STOP"
+    branch_text = ",".join(
         f"{name}->{next_id or 'STOP'}"
-        for name, next_id in sorted(result.next_experiments_by_outcome.items())
+        for name, next_id in sorted(branches.items())
     )
-    return f"{result.first_experiment_id}|{branches}"
+    return f"{first_experiment_id}|{branch_text}"
+
+
+def policy_signature(result: StrategyResult) -> str:
+    return _signature(result.first_experiment_id, result.next_experiments_by_outcome)
 
 
 @dataclass(frozen=True)
@@ -128,14 +135,44 @@ class StrategySensitivityAnalyzer:
                 for hypothesis_id, units in zip(self.hypothesis_ids, composition)
             }
 
-    def _strategy_for_weights(self, weights: dict[str, float]) -> StrategyResult:
+    def _choose_policy(self, weights: dict[str, float]) -> tuple[str, str]:
         plan = copy.deepcopy(self.plan)
         plan["hypotheses"] = copy.deepcopy(weights)
-        return StrategyPlanner(plan).best(
+        planner = StrategyPlanner(plan)
+        prior_entropy = entropy_bits(weights)
+        frontier = planner.frontier(
             budget=float(self.config["budget"]),
             max_depth=int(self.config["max_depth"]),
-            objective=self.config["objective"],
         )
+
+        objective = self.config["objective"]
+        if objective == "information_gain":
+            best = min(
+                frontier,
+                key=lambda p: (
+                    p.expected_terminal_entropy_bits,
+                    p.expected_cost,
+                    p.first_experiment_id or "",
+                ),
+            )
+        else:
+            best = max(
+                frontier,
+                key=lambda p: (
+                    p.gain_per_cost(prior_entropy),
+                    p.expected_information_gain(prior_entropy),
+                    -p.expected_cost,
+                    p.first_experiment_id or "",
+                ),
+            )
+
+        if best.first_experiment_id is None:
+            return "STOP", "STOP"
+        branches = {
+            outcome: child.first_experiment_id if child is not None else None
+            for outcome, child in best.branches
+        }
+        return best.first_experiment_id, _signature(best.first_experiment_id, branches)
 
     def analyze(self) -> SensitivityResult:
         baseline = StrategyPlanner(self.plan).best(
@@ -149,9 +186,9 @@ class StrategySensitivityAnalyzer:
         policies: Counter[str] = Counter()
         points = 0
         for weights in self.prior_grid():
-            result = self._strategy_for_weights(weights)
-            first_steps[result.first_experiment_id] += 1
-            policies[policy_signature(result)] += 1
+            first_step, signature = self._choose_policy(weights)
+            first_steps[first_step] += 1
+            policies[signature] += 1
             points += 1
 
         if points == 0:
