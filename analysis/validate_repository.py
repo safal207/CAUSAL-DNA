@@ -4,8 +4,8 @@
 This gate checks structure, cross-record identifiers, three-space graph
 integrity, four-dimensional temporal-lattice integrity, append-only causal
 processor history, active experiment planning, adaptive replanning, budgeted
-multi-step strategy planning, and research-integrity invariants. It does not
-judge whether a biological claim is true.
+multi-step strategy planning, planning-prior sensitivity, and research-
+integrity invariants. It does not judge whether a biological claim is true.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT))
 from causal_dna.adaptive_replanner import AdaptiveReplanner, AdaptiveReplannerError  # noqa: E402
 from causal_dna.experiment_selector import ExperimentSelector, ExperimentSelectorError  # noqa: E402
 from causal_dna.processor import CausalProcessor, CausalProcessorError  # noqa: E402
+from causal_dna.sensitivity import StrategySensitivityAnalyzer, SensitivityError  # noqa: E402
 from causal_dna.space_graph import SpaceGraph  # noqa: E402
 from causal_dna.strategy_planner import StrategyPlanner, StrategyPlannerError  # noqa: E402
 from causal_dna.temporal_lattice import TemporalLattice  # noqa: E402
@@ -53,6 +54,7 @@ def main() -> int:
     plan_schema = load(ROOT / "schemas" / "experiment-plan.schema.json")
     replan_schema = load(ROOT / "schemas" / "adaptive-replan.schema.json")
     strategy_schema = load(ROOT / "schemas" / "strategy-config.schema.json")
+    sensitivity_schema = load(ROOT / "schemas" / "sensitivity-analysis.schema.json")
 
     edges = load(ROOT / "cases" / "CDNA-001-rs1421085.edges.json")
     gap = load(ROOT / "cases" / "CDNA-001-GAP-001.status.json")
@@ -62,6 +64,7 @@ def main() -> int:
     experiment_plan = load(ROOT / "cases" / "CDNA-001.experiment-plan.json")
     replanning_scenarios = load(ROOT / "cases" / "CDNA-001.replanning-scenarios.json")
     strategy_configs = load(ROOT / "cases" / "CDNA-001.strategy-configs.json")
+    sensitivity_config = load(ROOT / "cases" / "CDNA-001.sensitivity-analysis.json")
 
     if not isinstance(edges, list) or not edges:
         errors.append("edge ledger must be a non-empty JSON array")
@@ -78,6 +81,7 @@ def main() -> int:
     errors.extend(validate(graph_doc, graph_schema, "SPACE-GRAPH"))
     errors.extend(validate(lattice_doc, lattice_schema, "TEMPORAL-LATTICE"))
     errors.extend(validate(experiment_plan, plan_schema, "EXPERIMENT-PLAN"))
+    errors.extend(validate(sensitivity_config, sensitivity_schema, "SENSITIVITY"))
     for i, event in enumerate(events):
         errors.extend(validate(event, event_schema, f"EVENTS[{i}]"))
     for i, scenario in enumerate(replanning_scenarios):
@@ -115,7 +119,7 @@ def main() -> int:
     strategies: dict[str, object] = {}
     try:
         strategy_planner = StrategyPlanner(experiment_plan)
-    except Exception as exc:  # ExperimentSelector errors are surfaced by the planner.
+    except Exception as exc:
         errors.append(f"STRATEGY-PLANNER:{exc}")
         strategy_planner = None
 
@@ -129,6 +133,14 @@ def main() -> int:
                 )
             except StrategyPlannerError as exc:
                 errors.append(f"STRATEGY-PLANNER:{config.get('strategy_id')}:{exc}")
+
+    try:
+        sensitivity = StrategySensitivityAnalyzer(
+            experiment_plan, sensitivity_config
+        ).analyze()
+    except SensitivityError as exc:
+        errors.append(f"SENSITIVITY:{exc}")
+        sensitivity = None
 
     if gap.get("missing_edge", {}).get("status") == "OPEN" and gap.get("cause_found") is True:
         errors.append("integrity: cause_found=true while missing_edge.status=OPEN")
@@ -190,7 +202,6 @@ def main() -> int:
     if not verifier_states:
         errors.append("4D integrity: no future independent verification gate is represented")
 
-    # Active-discovery integrity: planner state is advisory only.
     if "biological evidence" not in experiment_plan.get("disclaimer", ""):
         errors.append("experiment-plan integrity: disclaimer must state planning priors are not biological evidence")
 
@@ -205,9 +216,6 @@ def main() -> int:
                 + ", ".join(missing_open)
             )
 
-    # Adaptive-replanning integrity: simulations may alter planning weights and
-    # rankings only. They must not touch the authoritative event stream or claim
-    # causal closure.
     authoritative_event_count = len(events)
     for scenario in replanning_scenarios:
         if scenario.get("simulation_only") is not True:
@@ -224,8 +232,6 @@ def main() -> int:
     if len(events) != authoritative_event_count:
         errors.append("adaptive-replan integrity: authoritative event history was mutated")
 
-    # Multi-step strategy planning is also advisory-only and must obey every
-    # declared path budget.
     forbidden_strategy_fields = {
         "cause_found", "causal_status", "edge_status", "materialized", "verification_status"
     }
@@ -240,9 +246,19 @@ def main() -> int:
             )
         result = strategies.get(config.get("strategy_id"))
         if result is not None and result.max_path_cost > config["budget"] + 1e-9:
-            errors.append(
-                f"strategy integrity: {config.get('strategy_id')} exceeds path budget"
-            )
+            errors.append(f"strategy integrity: {config.get('strategy_id')} exceeds path budget")
+
+    # Sensitivity analysis is also planning-only. Its support fractions describe
+    # recommendation stability across assumed priors, not evidence strength.
+    sensitivity_disclaimer = sensitivity_config.get("disclaimer", "").lower()
+    if "not biological" not in sensitivity_disclaimer:
+        errors.append("sensitivity integrity: disclaimer must separate planning robustness from biology")
+    forbidden = forbidden_strategy_fields.intersection(sensitivity_config)
+    if forbidden:
+        errors.append(
+            "sensitivity integrity: config mutates causal state: "
+            + ", ".join(sorted(forbidden))
+        )
 
     if errors:
         print("CAUSAL-DNA VALIDATION: FAIL")
@@ -309,6 +325,23 @@ def main() -> int:
             f"max_path_cost={result.max_path_cost:.4f}, "
             f"gain/cost={result.gain_per_cost:.4f}, branches=[{branches}]"
         )
+    if sensitivity is not None:
+        first_counts = ", ".join(
+            f"{experiment}={count}"
+            for experiment, count in sensitivity.first_step_counts.items()
+        )
+        print(
+            f"- sensitivity {sensitivity.analysis_id}: priors={sensitivity.grid_points}, "
+            f"baseline_first={sensitivity.baseline_first_experiment_id}, "
+            f"baseline_first_support={sensitivity.baseline_first_step_support:.4f}, "
+            f"dominant_first={sensitivity.dominant_first_experiment_id}, "
+            f"dominant_first_support={sensitivity.dominant_first_step_support:.4f}, "
+            f"baseline_policy_support={sensitivity.baseline_policy_support:.4f}, "
+            f"first_step_robust={str(sensitivity.first_step_robust).lower()}, "
+            f"policy_robust={str(sensitivity.policy_signature_robust).lower()}"
+        )
+        print(f"- sensitivity first-step counts: {first_counts}")
+        print(f"- sensitivity dominant policy: {sensitivity.dominant_policy_signature}")
     return 0
 
 
