@@ -37,6 +37,7 @@ jobs:
           done
       - name: Run broad cell-context screen
         run: |
+          # Keep this run tied to the exact checked-out analysis code for provenance.
           python analysis/gap001_broad_cell_context.py \
             --input-root data/gse146692 \
             --output-dir results/gap001-broad-cell-context
