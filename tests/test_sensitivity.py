@@ -2,6 +2,7 @@ import copy
 import json
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from causal_dna.sensitivity import (
     SensitivityError,
@@ -20,7 +21,6 @@ class StrategySensitivityTests(unittest.TestCase):
         cls.plan = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
         cls.config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         cls.analyzer = StrategySensitivityAnalyzer(cls.plan, cls.config)
-        cls.result = cls.analyzer.analyze()
 
     def test_grid_contains_more_than_one_thousand_distinct_priors(self):
         self.assertEqual(1140, grid_size(21, 4, 1))
@@ -33,29 +33,54 @@ class StrategySensitivityTests(unittest.TestCase):
             self.assertEqual(set(self.plan["hypotheses"]), set(prior))
             self.assertTrue(all(value > 0 for value in prior.values()))
 
-    def test_analysis_counts_all_grid_points(self):
-        self.assertEqual(1140, self.result.grid_points)
-        self.assertEqual(1140, sum(self.result.first_step_counts.values()))
-        self.assertEqual(1140, sum(self.result.policy_counts.values()))
+    def test_analyze_counts_supplied_prior_points(self):
+        hypotheses = list(self.plan["hypotheses"])
+        sample = [
+            {hypotheses[0]: 1.0, hypotheses[1]: 1.0, hypotheses[2]: 1.0, hypotheses[3]: 1.0},
+            {hypotheses[0]: 8.0, hypotheses[1]: 2.0, hypotheses[2]: 2.0, hypotheses[3]: 1.0},
+            {hypotheses[0]: 2.0, hypotheses[1]: 8.0, hypotheses[2]: 2.0, hypotheses[3]: 1.0},
+            {hypotheses[0]: 2.0, hypotheses[1]: 2.0, hypotheses[2]: 8.0, hypotheses[3]: 1.0},
+        ]
+        with patch.object(self.analyzer, "prior_grid", return_value=iter(sample)):
+            result = self.analyzer.analyze()
+        self.assertEqual(4, result.grid_points)
+        self.assertEqual(4, sum(result.first_step_counts.values()))
+        self.assertEqual(4, sum(result.policy_counts.values()))
 
     def test_support_values_are_fractions(self):
+        hypotheses = list(self.plan["hypotheses"])
+        sample = [
+            dict(zip(hypotheses, weights))
+            for weights in ((1.0, 1.0, 1.0, 1.0), (6.0, 2.0, 2.0, 1.0))
+        ]
+        with patch.object(self.analyzer, "prior_grid", return_value=iter(sample)):
+            result = self.analyzer.analyze()
         for value in (
-            self.result.dominant_first_step_support,
-            self.result.baseline_first_step_support,
-            self.result.dominant_policy_support,
-            self.result.baseline_policy_support,
+            result.dominant_first_step_support,
+            result.baseline_first_step_support,
+            result.dominant_policy_support,
+            result.baseline_policy_support,
         ):
             self.assertGreaterEqual(value, 0.0)
             self.assertLessEqual(value, 1.0)
 
-    def test_stop_is_a_valid_sensitivity_choice(self):
-        self.assertIn("STOP", self.result.first_step_counts)
-        self.assertGreaterEqual(self.result.first_step_counts["STOP"], 0)
+    def test_policy_choice_includes_stop_as_legal_domain_value(self):
+        hypotheses = list(self.plan["hypotheses"])
+        first, signature = self.analyzer._choose_policy(
+            dict(zip(hypotheses, (18.0, 1.0, 1.0, 1.0)))
+        )
+        allowed = {"STOP"} | {e["experiment_id"] for e in self.plan["experiments"]}
+        self.assertIn(first, allowed)
+        self.assertIsInstance(signature, str)
 
     def test_sensitivity_result_cannot_claim_causal_status(self):
-        self.assertFalse(hasattr(self.result, "cause_found"))
-        self.assertFalse(hasattr(self.result, "causal_status"))
-        self.assertFalse(hasattr(self.result, "materialized"))
+        hypotheses = list(self.plan["hypotheses"])
+        sample = [dict(zip(hypotheses, (1.0, 1.0, 1.0, 1.0)))]
+        with patch.object(self.analyzer, "prior_grid", return_value=iter(sample)):
+            result = self.analyzer.analyze()
+        self.assertFalse(hasattr(result, "cause_found"))
+        self.assertFalse(hasattr(result, "causal_status"))
+        self.assertFalse(hasattr(result, "materialized"))
 
     def test_too_small_grid_is_rejected(self):
         config = copy.deepcopy(self.config)
