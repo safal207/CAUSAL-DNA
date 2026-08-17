@@ -3,9 +3,9 @@
 
 This gate checks structure, cross-record identifiers, three-space graph
 integrity, four-dimensional temporal-lattice integrity, append-only causal
-processor history, active experiment planning, adaptive replanning, and
-research-integrity invariants. It does not judge whether a biological claim is
-true.
+processor history, active experiment planning, adaptive replanning, budgeted
+multi-step strategy planning, and research-integrity invariants. It does not
+judge whether a biological claim is true.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from causal_dna.adaptive_replanner import AdaptiveReplanner, AdaptiveReplannerEr
 from causal_dna.experiment_selector import ExperimentSelector, ExperimentSelectorError  # noqa: E402
 from causal_dna.processor import CausalProcessor, CausalProcessorError  # noqa: E402
 from causal_dna.space_graph import SpaceGraph  # noqa: E402
+from causal_dna.strategy_planner import StrategyPlanner, StrategyPlannerError  # noqa: E402
 from causal_dna.temporal_lattice import TemporalLattice  # noqa: E402
 
 
@@ -51,6 +52,7 @@ def main() -> int:
     event_schema = load(ROOT / "schemas" / "causal-event.schema.json")
     plan_schema = load(ROOT / "schemas" / "experiment-plan.schema.json")
     replan_schema = load(ROOT / "schemas" / "adaptive-replan.schema.json")
+    strategy_schema = load(ROOT / "schemas" / "strategy-config.schema.json")
 
     edges = load(ROOT / "cases" / "CDNA-001-rs1421085.edges.json")
     gap = load(ROOT / "cases" / "CDNA-001-GAP-001.status.json")
@@ -59,6 +61,7 @@ def main() -> int:
     events = load(ROOT / "cases" / "CDNA-001.events.json")
     experiment_plan = load(ROOT / "cases" / "CDNA-001.experiment-plan.json")
     replanning_scenarios = load(ROOT / "cases" / "CDNA-001.replanning-scenarios.json")
+    strategy_configs = load(ROOT / "cases" / "CDNA-001.strategy-configs.json")
 
     if not isinstance(edges, list) or not edges:
         errors.append("edge ledger must be a non-empty JSON array")
@@ -79,6 +82,8 @@ def main() -> int:
         errors.extend(validate(event, event_schema, f"EVENTS[{i}]"))
     for i, scenario in enumerate(replanning_scenarios):
         errors.extend(validate(scenario, replan_schema, f"REPLAN[{i}]"))
+    for i, config in enumerate(strategy_configs):
+        errors.extend(validate(config, strategy_schema, f"STRATEGY[{i}]"))
 
     graph = SpaceGraph(graph_doc)
     errors.extend(f"SPACE-GRAPH:{err}" for err in graph.errors())
@@ -106,6 +111,24 @@ def main() -> int:
             ).replay()
         except AdaptiveReplannerError as exc:
             errors.append(f"ADAPTIVE-REPLANNER:{scenario.get('scenario_id')}:{exc}")
+
+    strategies: dict[str, object] = {}
+    try:
+        strategy_planner = StrategyPlanner(experiment_plan)
+    except Exception as exc:  # ExperimentSelector errors are surfaced by the planner.
+        errors.append(f"STRATEGY-PLANNER:{exc}")
+        strategy_planner = None
+
+    if strategy_planner is not None:
+        for config in strategy_configs:
+            try:
+                strategies[config["strategy_id"]] = strategy_planner.best(
+                    budget=config["budget"],
+                    max_depth=config["max_depth"],
+                    objective=config["objective"],
+                )
+            except StrategyPlannerError as exc:
+                errors.append(f"STRATEGY-PLANNER:{config.get('strategy_id')}:{exc}")
 
     if gap.get("missing_edge", {}).get("status") == "OPEN" and gap.get("cause_found") is True:
         errors.append("integrity: cause_found=true while missing_edge.status=OPEN")
@@ -201,6 +224,26 @@ def main() -> int:
     if len(events) != authoritative_event_count:
         errors.append("adaptive-replan integrity: authoritative event history was mutated")
 
+    # Multi-step strategy planning is also advisory-only and must obey every
+    # declared path budget.
+    forbidden_strategy_fields = {
+        "cause_found", "causal_status", "edge_status", "materialized", "verification_status"
+    }
+    for config in strategy_configs:
+        if config.get("planning_only") is not True:
+            errors.append(f"strategy integrity: {config.get('strategy_id')} is not planning_only")
+        forbidden = forbidden_strategy_fields.intersection(config)
+        if forbidden:
+            errors.append(
+                f"strategy integrity: {config.get('strategy_id')} mutates causal state: "
+                + ", ".join(sorted(forbidden))
+            )
+        result = strategies.get(config.get("strategy_id"))
+        if result is not None and result.max_path_cost > config["budget"] + 1e-9:
+            errors.append(
+                f"strategy integrity: {config.get('strategy_id')} exceeds path budget"
+            )
+
     if errors:
         print("CAUSAL-DNA VALIDATION: FAIL")
         for err in errors:
@@ -253,6 +296,18 @@ def main() -> int:
             f"entropy={snapshot.entropy_bits:.4f} bits, "
             f"next_IG={best_ig.experiment_id if best_ig else 'NONE'}, "
             f"next_cost={best_cost.experiment_id if best_cost else 'NONE'}"
+        )
+    for strategy_id, result in sorted(strategies.items()):
+        branches = ", ".join(
+            f"{outcome}->{next_id or 'STOP'}"
+            for outcome, next_id in sorted(result.next_experiments_by_outcome.items())
+        )
+        print(
+            f"- strategy {strategy_id}: first={result.first_experiment_id}, "
+            f"gain={result.expected_information_gain_bits:.4f} bits, "
+            f"expected_cost={result.expected_cost:.4f}, "
+            f"max_path_cost={result.max_path_cost:.4f}, "
+            f"gain/cost={result.gain_per_cost:.4f}, branches=[{branches}]"
         )
     return 0
 
