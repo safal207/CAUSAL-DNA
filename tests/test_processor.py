@@ -41,6 +41,34 @@ class CausalProcessorTests(unittest.TestCase):
         with self.assertRaises(CausalProcessorError):
             CausalProcessor(bad)
 
+    def test_experiment_outcome_requires_experiment_observer(self):
+        bad = copy.deepcopy(self.events)
+        bad.append({
+            "event_id":"EV-X",
+            "generation":2,
+            "event_type":"experiment_outcome",
+            "subject":"E1_ARID5B_OCCUPANCY",
+            "observer":"model",
+            "evidence_refs":["test:measurement"],
+            "payload":{"experiment_id":"E1_ARID5B_OCCUPANCY","outcome_name":"no_allele_specific_occupancy"}
+        })
+        with self.assertRaises(CausalProcessorError):
+            CausalProcessor(bad)
+
+    def test_experiment_outcome_requires_provenance(self):
+        bad = copy.deepcopy(self.events)
+        bad.append({
+            "event_id":"EV-X",
+            "generation":2,
+            "event_type":"experiment_outcome",
+            "subject":"E1_ARID5B_OCCUPANCY",
+            "observer":"experiment",
+            "evidence_refs":[],
+            "payload":{"experiment_id":"E1_ARID5B_OCCUPANCY","outcome_name":"no_allele_specific_occupancy"}
+        })
+        with self.assertRaises(CausalProcessorError):
+            CausalProcessor(bad)
+
     def test_next_generation_does_not_rewrite_history(self):
         p = CausalProcessor(self.events)
         old = copy.deepcopy(p.events)
