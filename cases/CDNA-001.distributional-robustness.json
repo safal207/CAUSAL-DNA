@@ -1,0 +1,15 @@
+{
+  "analysis_id": "CDNA-001-DRO-001",
+  "case_id": "CDNA-001",
+  "disclaimer": "This configuration defines uncertainty over planning assumptions only. It does not represent biological probability, causal confidence, or evidence strength.",
+  "sensitivity_analysis_ref": "CDNA-001-SENS-001",
+  "objective": "information_gain_per_cost",
+  "uncertainty_model": "rectangular_interval",
+  "outcome_probability_max_transfer": 0.15,
+  "assay_reliability_min": 0.6,
+  "assay_reliability_max": 1.0,
+  "cost_multiplier_min": 0.75,
+  "cost_multiplier_max": 1.25,
+  "max_baseline_first_step_cost": 3.0,
+  "include_stop": true
+}
