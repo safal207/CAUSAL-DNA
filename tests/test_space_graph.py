@@ -97,6 +97,17 @@ class SpaceGraphTests(unittest.TestCase):
         self.assertGreaterEqual(len(paths), 1)
         self.assertTrue(any("M_IRX3_UP" in p.node_ids for p in paths))
 
+    def test_mermaid_is_generated_from_same_graph(self):
+        rendered = self.graph().to_mermaid()
+        self.assertIn("flowchart LR", rendered)
+        self.assertIn('subgraph PROJECTIVE["Projective space"]', rendered)
+        self.assertIn('subgraph BARDO["Bardo transition space"]', rendered)
+        self.assertIn('subgraph MATERIAL["Material space"]', rendered)
+        self.assertIn("P_H3_ACCESS", rendered)
+        self.assertIn("B_INTEGRATION_GATE", rendered)
+        self.assertIn("M_IRX3_UP", rendered)
+        self.assertIn('SG_E040', json.dumps(self.document))
+
 
 if __name__ == "__main__":
     unittest.main()
