@@ -8,7 +8,7 @@
   "properties": {
     "event_id": {"type":"string","minLength":1},
     "generation": {"type":"integer","minimum":0},
-    "event_type": {"enum":["observation","perturbation","verification","model_update","hypothesis_opened","hypothesis_rejected","hypothesis_superseded"]},
+    "event_type": {"enum":["observation","perturbation","experiment_outcome","verification","model_update","hypothesis_opened","hypothesis_rejected","hypothesis_superseded"]},
     "subject": {"type":"string","minLength":1},
     "observer": {"enum":["model","experiment","independent_verifier"]},
     "evidence_refs": {"type":"array","items":{"type":"string"}},
