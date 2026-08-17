@@ -39,9 +39,12 @@ class CausalProcessor:
             if not isinstance(generation, int) or generation < last_generation:
                 raise CausalProcessorError("event generations must be monotonic")
             last_generation = generation
-            if event.get("event_type") in {"observation","perturbation","verification"} and not event.get("evidence_refs"):
+            kind = event.get("event_type")
+            if kind in {"observation", "perturbation", "experiment_outcome", "verification"} and not event.get("evidence_refs"):
                 raise CausalProcessorError("material/verification events require evidence_refs")
-            if event.get("event_type") == "verification" and event.get("observer") != "independent_verifier":
+            if kind == "experiment_outcome" and event.get("observer") != "experiment":
+                raise CausalProcessorError("experiment_outcome must be asserted by experiment observer")
+            if kind == "verification" and event.get("observer") != "independent_verifier":
                 raise CausalProcessorError("verification must be asserted by independent_verifier")
 
     @property
