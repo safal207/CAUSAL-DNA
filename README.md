@@ -110,6 +110,67 @@ Implementation:
 
 The observer axis separates `model`, `experiment`, and `independent_verifier`, so the same component that proposes a mechanism cannot silently certify it as established.
 
+## Self-updating causal processor
+
+The authoritative research history is append-only:
+
+```text
+Evidence -> Event -> Generation -> Rebuildable Projection
+```
+
+`cases/CDNA-001.events.json` is replayed by [`causal_dna/processor.py`](causal_dna/processor.py). New generations may add observations, perturbations, experiment outcomes, model updates, hypothesis changes, or independent verification, but historical events cannot be rewritten.
+
+The current model projection is therefore disposable and reproducible: if a projection is lost, it can be rebuilt from the event history.
+
+See [`docs/self-updating-causal-processor.md`](docs/self-updating-causal-processor.md).
+
+## Active experiment selection
+
+CAUSAL-DNA ranks candidate experiments by expected reduction in planning uncertainty:
+
+```text
+E* = argmax_E E[ H(before) - H(after | E) ]
+```
+
+The planning weights are **not biological evidence**. They exist only to prioritize experiments.
+
+The first CDNA-001 plan compares ARID5B occupancy, CUX1 occupancy, allele-specific chromatin accessibility, enhancer-to-Irx3 3D contact, and a matched multi-omic design.
+
+Implementation:
+
+- [`causal_dna/experiment_selector.py`](causal_dna/experiment_selector.py)
+- [`schemas/experiment-plan.schema.json`](schemas/experiment-plan.schema.json)
+- [`cases/CDNA-001.experiment-plan.json`](cases/CDNA-001.experiment-plan.json)
+- [`docs/active-causal-discovery.md`](docs/active-causal-discovery.md)
+
+## Adaptive replanning
+
+The selector now closes the sequential loop:
+
+```text
+rank experiments
+      -> experiment outcome
+      -> generation N+1
+      -> update planning weights
+      -> recompute entropy / information gain
+      -> choose next experiment
+```
+
+There are two separate modes:
+
+- **simulation mode** — `simulation_only=true` scenarios test how ranking would change under hypothetical outcomes without touching evidence history;
+- **real event mode** — an evidence-backed `experiment_outcome` from the `experiment` observer is appended to the next processor generation and triggers replanning.
+
+A real experiment outcome can change planning priority, but it still cannot set `cause_found`, materialize a Bardo path, or create a verified causal edge. Those transitions remain behind independent verification.
+
+Implementation:
+
+- [`causal_dna/adaptive_replanner.py`](causal_dna/adaptive_replanner.py)
+- [`schemas/adaptive-replan.schema.json`](schemas/adaptive-replan.schema.json)
+- [`schemas/causal-event.schema.json`](schemas/causal-event.schema.json)
+- [`cases/CDNA-001.replanning-scenarios.json`](cases/CDNA-001.replanning-scenarios.json)
+- [`docs/adaptive-causal-loop.md`](docs/adaptive-causal-loop.md)
+
 ## First case: CDNA-001 — rs1421085
 
 The obesity-associated non-coding variant **rs1421085 T>C** is a useful benchmark because one branch is unusually well supported experimentally, while another branch remains incomplete.
@@ -170,4 +231,4 @@ CAUSAL-DNA is a computational and evidence-mapping research project. It does **n
 
 ---
 
-**Status:** bootstrap / protocol v0.1 + three-space graph v0.1 + 4D causal lattice v0.1
+**Status:** bootstrap / causal proof protocol + three-space graph + 4D lattice + append-only processor + active experiment selection + adaptive replanning
