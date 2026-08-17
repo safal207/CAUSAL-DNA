@@ -2,8 +2,9 @@
 """Validate CAUSAL-DNA machine-readable evidence and research-gap state.
 
 This gate checks structure, cross-record identifiers, three-space graph
-integrity, four-dimensional temporal-lattice integrity, and research-integrity
-invariants. It does not judge whether a biological claim is true.
+integrity, four-dimensional temporal-lattice integrity, append-only causal
+processor history, and research-integrity invariants. It does not judge
+whether a biological claim is true.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from causal_dna.processor import CausalProcessor, CausalProcessorError  # noqa: E402
 from causal_dna.space_graph import SpaceGraph  # noqa: E402
 from causal_dna.temporal_lattice import TemporalLattice  # noqa: E402
 
@@ -43,11 +45,13 @@ def main() -> int:
     gap_schema = load(ROOT / "schemas" / "gap-status.schema.json")
     graph_schema = load(ROOT / "schemas" / "space-graph.schema.json")
     lattice_schema = load(ROOT / "schemas" / "temporal-lattice.schema.json")
+    event_schema = load(ROOT / "schemas" / "causal-event.schema.json")
 
     edges = load(ROOT / "cases" / "CDNA-001-rs1421085.edges.json")
     gap = load(ROOT / "cases" / "CDNA-001-GAP-001.status.json")
     graph_doc = load(ROOT / "cases" / "CDNA-001-rs1421085.space-graph.json")
     lattice_doc = load(ROOT / "cases" / "CDNA-001-rs1421085.temporal-lattice.json")
+    events = load(ROOT / "cases" / "CDNA-001.events.json")
 
     if not isinstance(edges, list) or not edges:
         errors.append("edge ledger must be a non-empty JSON array")
@@ -63,6 +67,8 @@ def main() -> int:
     errors.extend(validate(gap, gap_schema, "GAP-001"))
     errors.extend(validate(graph_doc, graph_schema, "SPACE-GRAPH"))
     errors.extend(validate(lattice_doc, lattice_schema, "TEMPORAL-LATTICE"))
+    for i, event in enumerate(events):
+        errors.extend(validate(event, event_schema, f"EVENTS[{i}]"))
 
     graph = SpaceGraph(graph_doc)
     errors.extend(f"SPACE-GRAPH:{err}" for err in graph.errors())
@@ -70,7 +76,12 @@ def main() -> int:
     lattice = TemporalLattice(lattice_doc)
     errors.extend(f"TEMPORAL-LATTICE:{err}" for err in lattice.errors())
 
-    # Integrity invariant: an open missing edge cannot coexist with cause_found=true.
+    try:
+        processor = CausalProcessor(events)
+    except CausalProcessorError as exc:
+        errors.append(f"CAUSAL-PROCESSOR:{exc}")
+        processor = None
+
     if gap.get("missing_edge", {}).get("status") == "OPEN" and gap.get("cause_found") is True:
         errors.append("integrity: cause_found=true while missing_edge.status=OPEN")
 
@@ -100,11 +111,8 @@ def main() -> int:
     if gap.get("missing_edge", {}).get("status") == "OPEN":
         integration_gate = graph.node("B_INTEGRATION_GATE")
         if integration_gate.get("resolution", "open") != "open":
-            errors.append(
-                "three-space integrity: GAP-001 is OPEN but B_INTEGRATION_GATE is resolved"
-            )
+            errors.append("three-space integrity: GAP-001 is OPEN but B_INTEGRATION_GATE is resolved")
 
-        # In 4D, an open gap must remain outside material future fact.
         future_material = lattice.states_at(space="material", time="future")
         if future_material:
             errors.append(
@@ -112,15 +120,14 @@ def main() -> int:
                 + ", ".join(s["id"] for s in future_material)
             )
 
+        if processor is not None:
+            projection = processor.project()
+            if "GAP-001" in projection.verified_subjects:
+                errors.append("processor integrity: open GAP-001 is already independently verified")
+
     contour_sources = [
-        "P_H1_ARID5B",
-        "P_H2_CUX1",
-        "P_H3_ACCESS",
-        "P_H4_CONTACT",
-        "P_H6_COMPOSITION",
-        "P_H7_SEX",
-        "P_H8_GRAMMAR",
-        "P_H9_TIME",
+        "P_H1_ARID5B", "P_H2_CUX1", "P_H3_ACCESS", "P_H4_CONTACT",
+        "P_H6_COMPOSITION", "P_H7_SEX", "P_H8_GRAMMAR", "P_H9_TIME",
     ]
     for source in contour_sources:
         if not graph.contours(source, "M_IRX3_UP"):
@@ -128,10 +135,10 @@ def main() -> int:
                 f"three-space integrity: no projective→Bardo→material contour from {source} to M_IRX3_UP"
             )
 
-    # Observer separation: planned independent verification may inspect evidence,
-    # but it must not masquerade as a completed experimental observation.
-    verifier_states = lattice.states_at(time="future")
-    verifier_states = [s for s in verifier_states if s.get("observer") == "independent_verifier"]
+    verifier_states = [
+        s for s in lattice.states_at(time="future")
+        if s.get("observer") == "independent_verifier"
+    ]
     if not verifier_states:
         errors.append("4D integrity: no future independent verification gate is represented")
 
@@ -143,6 +150,8 @@ def main() -> int:
 
     summary = graph.summary()
     lattice_summary = lattice.summary()
+    projection = processor.project() if processor is not None else None
+
     print("CAUSAL-DNA VALIDATION: PASS")
     print(f"- causal edges: {len(edges)}")
     print(f"- hypotheses: {len(gap.get('hypotheses', []))}")
@@ -159,10 +168,12 @@ def main() -> int:
     print(f"- 4D lattice states: {lattice_summary['states']}")
     print(f"- 4D lattice transitions: {lattice_summary['transitions']}")
     print("- 4D future frontier: " + ", ".join(lattice_summary["future_frontier"]))
-    print(
-        "- 4D materialized history: "
-        + ", ".join(lattice_summary["materialized_history"])
-    )
+    print("- 4D materialized history: " + ", ".join(lattice_summary["materialized_history"]))
+    if projection is not None:
+        print(f"- causal processor events: {len(events)}")
+        print(f"- causal processor generation: {projection.generation}")
+        print("- processor open hypotheses: " + ", ".join(projection.open_hypotheses))
+        print("- processor rejected hypotheses: " + ", ".join(projection.rejected_hypotheses))
     return 0
 
 
