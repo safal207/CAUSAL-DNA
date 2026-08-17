@@ -3,8 +3,9 @@
 
 This gate checks structure, cross-record identifiers, three-space graph
 integrity, four-dimensional temporal-lattice integrity, append-only causal
-processor history, active experiment-planning integrity, and research-
-integrity invariants. It does not judge whether a biological claim is true.
+processor history, active experiment planning, adaptive replanning, and
+research-integrity invariants. It does not judge whether a biological claim is
+true.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from causal_dna.adaptive_replanner import AdaptiveReplanner, AdaptiveReplannerError  # noqa: E402
 from causal_dna.experiment_selector import ExperimentSelector, ExperimentSelectorError  # noqa: E402
 from causal_dna.processor import CausalProcessor, CausalProcessorError  # noqa: E402
 from causal_dna.space_graph import SpaceGraph  # noqa: E402
@@ -48,6 +50,7 @@ def main() -> int:
     lattice_schema = load(ROOT / "schemas" / "temporal-lattice.schema.json")
     event_schema = load(ROOT / "schemas" / "causal-event.schema.json")
     plan_schema = load(ROOT / "schemas" / "experiment-plan.schema.json")
+    replan_schema = load(ROOT / "schemas" / "adaptive-replan.schema.json")
 
     edges = load(ROOT / "cases" / "CDNA-001-rs1421085.edges.json")
     gap = load(ROOT / "cases" / "CDNA-001-GAP-001.status.json")
@@ -55,6 +58,7 @@ def main() -> int:
     lattice_doc = load(ROOT / "cases" / "CDNA-001-rs1421085.temporal-lattice.json")
     events = load(ROOT / "cases" / "CDNA-001.events.json")
     experiment_plan = load(ROOT / "cases" / "CDNA-001.experiment-plan.json")
+    replanning_scenarios = load(ROOT / "cases" / "CDNA-001.replanning-scenarios.json")
 
     if not isinstance(edges, list) or not edges:
         errors.append("edge ledger must be a non-empty JSON array")
@@ -73,6 +77,8 @@ def main() -> int:
     errors.extend(validate(experiment_plan, plan_schema, "EXPERIMENT-PLAN"))
     for i, event in enumerate(events):
         errors.extend(validate(event, event_schema, f"EVENTS[{i}]"))
+    for i, scenario in enumerate(replanning_scenarios):
+        errors.extend(validate(scenario, replan_schema, f"REPLAN[{i}]"))
 
     graph = SpaceGraph(graph_doc)
     errors.extend(f"SPACE-GRAPH:{err}" for err in graph.errors())
@@ -91,6 +97,15 @@ def main() -> int:
     except ExperimentSelectorError as exc:
         errors.append(f"EXPERIMENT-SELECTOR:{exc}")
         selector = None
+
+    replans: dict[str, object] = {}
+    for scenario in replanning_scenarios:
+        try:
+            replans[scenario["scenario_id"]] = AdaptiveReplanner(
+                experiment_plan, scenario["outcomes"]
+            ).replay()
+        except AdaptiveReplannerError as exc:
+            errors.append(f"ADAPTIVE-REPLANNER:{scenario.get('scenario_id')}:{exc}")
 
     if gap.get("missing_edge", {}).get("status") == "OPEN" and gap.get("cause_found") is True:
         errors.append("integrity: cause_found=true while missing_edge.status=OPEN")
@@ -152,8 +167,7 @@ def main() -> int:
     if not verifier_states:
         errors.append("4D integrity: no future independent verification gate is represented")
 
-    # Active-discovery integrity: planner state is advisory only. It may rank tests,
-    # but it may not itself assert material or verified causal state.
+    # Active-discovery integrity: planner state is advisory only.
     if "biological evidence" not in experiment_plan.get("disclaimer", ""):
         errors.append("experiment-plan integrity: disclaimer must state planning priors are not biological evidence")
 
@@ -167,6 +181,25 @@ def main() -> int:
                 "experiment-plan integrity: planner includes hypotheses not open in processor: "
                 + ", ".join(missing_open)
             )
+
+    # Adaptive-replanning integrity: simulations may alter planning weights and
+    # rankings only. They must not touch the authoritative event stream or claim
+    # causal closure.
+    authoritative_event_count = len(events)
+    for scenario in replanning_scenarios:
+        if scenario.get("simulation_only") is not True:
+            errors.append(f"adaptive-replan integrity: {scenario.get('scenario_id')} is not explicitly simulated")
+        for outcome in scenario.get("outcomes", []):
+            forbidden = {
+                "cause_found", "causal_status", "edge_status", "materialized", "verification_status"
+            }.intersection(outcome)
+            if forbidden:
+                errors.append(
+                    f"adaptive-replan integrity: {scenario.get('scenario_id')} mutates causal state: "
+                    + ", ".join(sorted(forbidden))
+                )
+    if len(events) != authoritative_event_count:
+        errors.append("adaptive-replan integrity: authoritative event history was mutated")
 
     if errors:
         print("CAUSAL-DNA VALIDATION: FAIL")
@@ -211,6 +244,15 @@ def main() -> int:
         print(
             "- max information gain per cost: "
             f"{efficient.experiment_id} ({efficient.utility_per_cost:.4f} bits/cost-unit)"
+        )
+    for scenario_id, snapshot in sorted(replans.items()):
+        best_ig = snapshot.best_information_gain
+        best_cost = snapshot.best_gain_per_cost
+        print(
+            f"- adaptive replan {scenario_id}: generation={snapshot.generation}, "
+            f"entropy={snapshot.entropy_bits:.4f} bits, "
+            f"next_IG={best_ig.experiment_id if best_ig else 'NONE'}, "
+            f"next_cost={best_cost.experiment_id if best_cost else 'NONE'}"
         )
     return 0
 
