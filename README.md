@@ -39,6 +39,50 @@ Every edge should carry:
 
 See [`protocol/causal-proof-v0.1.md`](protocol/causal-proof-v0.1.md).
 
+## Three-space causal graph
+
+CAUSAL-DNA now also models the **transition of causal knowledge** through three graph spaces:
+
+```text
+PROJECTIVE
+possible mechanism / hypothesis / planned experiment
+        |
+        v
+BARDO
+competing, partial, conflicting or unresolved transition state
+        |
+        v
+MATERIAL
+observation / perturbation / rescue with provenance
+```
+
+This is implemented as an executable graph, not a hand-maintained diagram:
+
+- [`causal_dna/space_graph.py`](causal_dna/space_graph.py) — graph engine, traversal, materialization frontier and Mermaid renderer;
+- [`schemas/space-graph.schema.json`](schemas/space-graph.schema.json) — machine-readable contract;
+- [`cases/CDNA-001-rs1421085.space-graph.json`](cases/CDNA-001-rs1421085.space-graph.json) — first real three-space case graph;
+- [`docs/three-space-causal-graph.md`](docs/three-space-causal-graph.md) — semantics and integrity rules.
+
+A projective hypothesis is forbidden from jumping directly into material space. It must cross an explicit Bardo state, and every material node/transition requires evidence provenance. Rejected and superseded Bardo paths are preserved rather than deleted.
+
+Example:
+
+```bash
+python -m causal_dna.space_graph \
+  cases/CDNA-001-rs1421085.space-graph.json \
+  --start P_H3_ACCESS \
+  --end M_IRX3_UP \
+  --contours
+```
+
+Mermaid can be generated from the same JSON source of truth:
+
+```bash
+python -m causal_dna.space_graph \
+  cases/CDNA-001-rs1421085.space-graph.json \
+  --mermaid-out /tmp/cdna-001.mmd
+```
+
 ## First case: CDNA-001 — rs1421085
 
 The obesity-associated non-coding variant **rs1421085 T>C** is a useful benchmark because one branch is unusually well supported experimentally, while another branch remains incomplete.
@@ -99,4 +143,4 @@ CAUSAL-DNA is a computational and evidence-mapping research project. It does **n
 
 ---
 
-**Status:** bootstrap / protocol v0.1
+**Status:** bootstrap / protocol v0.1 + three-space graph v0.1
