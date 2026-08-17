@@ -198,6 +198,28 @@ Implementation:
 - [`cases/CDNA-001.strategy-configs.json`](cases/CDNA-001.strategy-configs.json)
 - [`docs/multi-step-research-strategy.md`](docs/multi-step-research-strategy.md)
 
+## Strategy robustness and sensitivity
+
+An optimal strategy can be an artifact of one arbitrary planning prior. CAUSAL-DNA therefore reruns the strategy planner across a deterministic simplex grid of alternative priors.
+
+For the first CDNA-001 sensitivity pass:
+
+```text
+H1 + H2 + H3 + H4 = 21
+Hi >= 1
+```
+
+This yields exactly **1,140 distinct planning-prior states**. For each state the same budgeted policy search is rerun, and the validator reports how often the baseline first experiment and exact contingent policy remain optimal.
+
+The resulting support fractions measure **recommendation stability only**. They are not biological probabilities, evidence strength, confidence intervals, or causal confidence. This first pass varies priors while holding experiment costs, outcome planning probabilities, and likelihood-like multipliers fixed.
+
+Implementation:
+
+- [`causal_dna/sensitivity.py`](causal_dna/sensitivity.py)
+- [`schemas/sensitivity-analysis.schema.json`](schemas/sensitivity-analysis.schema.json)
+- [`cases/CDNA-001.sensitivity-analysis.json`](cases/CDNA-001.sensitivity-analysis.json)
+- [`docs/strategy-sensitivity.md`](docs/strategy-sensitivity.md)
+
 ## First case: CDNA-001 — rs1421085
 
 The obesity-associated non-coding variant **rs1421085 T>C** is a useful benchmark because one branch is unusually well supported experimentally, while another branch remains incomplete.
@@ -258,4 +280,4 @@ CAUSAL-DNA is a computational and evidence-mapping research project. It does **n
 
 ---
 
-**Status:** bootstrap / causal proof protocol + three-space graph + 4D lattice + append-only processor + active experiment selection + adaptive replanning + budgeted multi-step strategy planning
+**Status:** bootstrap / causal proof protocol + three-space graph + 4D lattice + append-only processor + active experiment selection + adaptive replanning + budgeted multi-step strategy planning + planning-prior robustness analysis
