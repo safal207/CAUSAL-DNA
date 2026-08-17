@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import jsonschema
 
-from causal_dna.distributional_robust import DistributionallyRobustAnalyzer
-
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from causal_dna.distributional_robust import DistributionallyRobustAnalyzer  # noqa: E402
+
 PLAN_PATH = ROOT / "cases" / "CDNA-001.experiment-plan.json"
 CONFIG_PATH = ROOT / "cases" / "CDNA-001.distributional-robustness.json"
 SENSITIVITY_PATH = ROOT / "cases" / "CDNA-001.sensitivity-analysis.json"
