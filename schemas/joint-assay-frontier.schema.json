@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/joint-assay-frontier.schema.json",
+  "title": "CAUSAL-DNA Joint Assay Frontier Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_id",
+    "case_id",
+    "disclaimer",
+    "decision_rule",
+    "objective",
+    "prior_model",
+    "prior_simplex_total_units",
+    "prior_min_units_per_hypothesis",
+    "joint_experiment_ids",
+    "cost_multiplier_grid",
+    "reliability_grid",
+    "outcome_probability_max_transfer",
+    "include_stop",
+    "pareto_budget",
+    "pareto_horizons",
+    "pareto_reference_settings"
+  ],
+  "properties": {
+    "analysis_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "disclaimer": {"type": "string", "minLength": 1},
+    "decision_rule": {"const": "minimax_interval_regret"},
+    "objective": {"const": "information_gain_per_cost"},
+    "prior_model": {"const": "deterministic_simplex_grid"},
+    "prior_simplex_total_units": {"type": "integer", "minimum": 1},
+    "prior_min_units_per_hypothesis": {"type": "integer", "minimum": 1},
+    "joint_experiment_ids": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "cost_multiplier_grid": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"type": "number", "exclusiveMinimum": 0}
+    },
+    "reliability_grid": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"type": "number", "minimum": 0, "maximum": 1}
+    },
+    "outcome_probability_max_transfer": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 0.5
+    },
+    "include_stop": {"const": true},
+    "pareto_budget": {"type": "number", "exclusiveMinimum": 0},
+    "pareto_horizons": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 1, "maximum": 3}
+    },
+    "pareto_reference_settings": {
+      "type": "object",
+      "minProperties": 2,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["cost_multiplier", "reliability"],
+        "properties": {
+          "cost_multiplier": {"type": "number", "exclusiveMinimum": 0},
+          "reliability": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    }
+  }
+}
