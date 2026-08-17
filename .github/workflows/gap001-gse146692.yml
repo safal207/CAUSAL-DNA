@@ -1,0 +1,59 @@
+name: GAP-001 GSE146692 coexpression
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_gse146692_coexpression.py'
+      - 'analysis/requirements.txt'
+      - '.github/workflows/gap001-gse146692.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  t1-coexpression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: analysis/requirements.txt
+
+      - name: Install analysis dependencies
+        run: python -m pip install -r analysis/requirements.txt
+
+      - name: Download public GSE146692 Cell Ranger matrices
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='https://raw.githubusercontent.com/TheJacksonLaboratory/ventral-posterior-hypothalamus-scrnaseq/master/data/cellranger'
+          for sample in AJ18003 AJ18004 AJ19001 AJ19002; do
+            mkdir -p "data/gse146692/${sample}"
+            curl --fail --location --retry 4 --retry-all-errors \
+              --output "data/gse146692/${sample}/filtered_feature_bc_matrix.h5" \
+              "${root}/${sample}/filtered_feature_bc_matrix.h5"
+          done
+
+      - name: Run GAP-001 T1
+        run: |
+          python analysis/gap001_gse146692_coexpression.py \
+            --input-root data/gse146692 \
+            --output-dir results/gap001-gse146692
+
+      - name: Show report
+        run: cat results/gap001-gse146692/report.md
+
+      - name: Upload evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap001-gse146692-coexpression
+          path: results/gap001-gse146692/
+          if-no-files-found: error
+          retention-days: 30
