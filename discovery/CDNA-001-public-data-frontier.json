@@ -44,9 +44,10 @@
       "region": "117 adult brain anatomical dissections including hypothalamus",
       "age": "8 weeks",
       "sex": ["male"],
-      "strength": "adult cell-type-resolved chromatin atlas; ~2.3 million cells and ~1 million cCREs",
-      "limitation": "no rs1421085 genotype contrast; accessibility can nominate but not prove mediation",
-      "discovery_query": "test accessibility of mm10 chr8:91374372 exact orthologous element across hypothalamic cell populations"
+      "strength": "adult cell-type-resolved chromatin atlas; raw 500-bp tile and insertion matrices retained per sample",
+      "limitation": "no rs1421085 genotype contrast; current D1 result is sample/dissection-level rather than annotated cell-type-level",
+      "discovery_query": "map the nuclei carrying raw accessibility at mm10 chr8:91374372 to integrated cell subclasses and align with Irx3-relevant hypothalamic states",
+      "current_result_ref": "discovery/CDNA-001-GSE246791-hypothalamus-all8.json"
     },
     {
       "accession": "GSE226277",
@@ -58,7 +59,7 @@
       "context": "diabetes with acute or recurrent hypoglycemia",
       "strength": "RNA and accessibility measured in matched hypothalamic nuclei",
       "limitation": "metabolic-stress context and no rs1421085 genotype contrast",
-      "discovery_query": "ask whether Irx3-expressing cell states carry accessibility at mm10 chr8:91374372"
+      "discovery_query": "independently replicate locus-accessibility/Irx3-state coupling after GSE246791 cell-state localization"
     },
     {
       "accession": "GSE288514",
@@ -82,12 +83,22 @@
     },
     {
       "id": "GATE-ACCESSIBILITY",
-      "status": "RUNNING",
-      "requirement": "cell-resolved accessibility at exact orthologous element"
+      "status": "PARTIAL_PASS_D1_RAW_ACCESSIBILITY",
+      "requirement": "cell-resolved accessibility at exact orthologous element",
+      "result": "GSE246791: exact base absent from thresholded union candidate-enhancer catalog, but target 500-bp tile and +/-250 bp raw Tn5 insertion signal are present in 8/8 adult male hypothalamus samples across 6H/7J/8K/9L with two biological replicates each; signal is low-frequency and generally not an obvious local peak",
+      "result_refs": [
+        "discovery/CDNA-001-GSE246791-candidate-enhancer-locus.json",
+        "discovery/CDNA-001-GSE246791-hypothalamus-all8.json"
+      ],
+      "remaining_to_close": [
+        "annotated cell type of signal-carrying nuclei",
+        "independent dataset/modality replication",
+        "allele-specific comparison"
+      ]
     },
     {
       "id": "GATE-CELL-ALIGNMENT",
-      "status": "OPEN",
+      "status": "RUNNING",
       "requirement": "align accessible cell class to reproducible Irx3-positive posterior-hypothalamic population"
     },
     {
