@@ -5,18 +5,20 @@ The radius measures how far declared planning assumptions must move from a
 reference profile before the current minimax-regret first action changes.
 It is a property of the decision model, not biological evidence or causal
 confidence.
+
+Because minimax interval regret need not worsen monotonically when every
+"adverse" coordinate is moved together, the analyzer searches a declared
+family of normalized rays instead of treating the all-axis corner as globally
+worst by assumption.
 """
 from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
+from itertools import product
 from typing import Any
 
-from .joint_assay_frontier import (
-    JointAssayFrontierAnalyzer,
-    JointAssayFrontierError,
-    JointCell,
-)
+from .joint_assay_frontier import JointAssayFrontierAnalyzer, JointCell
 
 
 class AdversarialRadiusError(ValueError):
@@ -30,7 +32,7 @@ class AxisThreshold:
     normalized_distance: float | None
     boundary_value: float | None
     winner_after_boundary: str | None
-    regret_margin_after_boundary: float | None
+    target_regret_gap_after_boundary: float | None
 
 
 @dataclass(frozen=True)
@@ -42,8 +44,15 @@ class AdversarialRadiusResult:
     coordinated_switch_found: bool
     coordinated_radius: float | None
     coordinated_winner_after_boundary: str | None
-    coordinated_regret_margin_after_boundary: float | None
+    coordinated_target_regret_gap_after_boundary: float | None
     coordinated_settings: tuple[tuple[str, float, float], ...] | None
+    fractional_rays_tested: int
+    minimum_ray_switch_found: bool
+    minimum_ray_radius: float | None
+    minimum_ray_fractions: tuple[tuple[str, float], ...] | None
+    minimum_ray_winner_after_boundary: str | None
+    minimum_ray_target_regret_gap_after_boundary: float | None
+    minimum_ray_settings: tuple[tuple[str, float, float], ...] | None
     axis_thresholds: tuple[AxisThreshold, ...]
 
 
@@ -132,6 +141,26 @@ class AdversarialRadiusAnalyzer:
         if not isinstance(tolerance, (int, float)) or not (0 < tolerance <= 0.05):
             raise AdversarialRadiusError("binary_tolerance must be in (0, 0.05]")
 
+        fractions = self.config.get("fraction_grid")
+        if (
+            not isinstance(fractions, list)
+            or len(fractions) < 2
+            or len(fractions) > 5
+            or any(not isinstance(value, (int, float)) for value in fractions)
+        ):
+            raise AdversarialRadiusError(
+                "fraction_grid must contain 2..5 numeric values"
+            )
+        numeric = [float(value) for value in fractions]
+        if numeric != sorted(set(numeric)):
+            raise AdversarialRadiusError(
+                "fraction_grid must contain unique ascending values"
+            )
+        if numeric[0] != 0.0 or numeric[-1] != 1.0:
+            raise AdversarialRadiusError("fraction_grid must span 0.0 to 1.0")
+        if any(value < 0 or value > 1 for value in numeric):
+            raise AdversarialRadiusError("fraction_grid values must be in [0, 1]")
+
     def _reference_value(self, axis: dict[str, Any]) -> float:
         cost, reliability = self.reference[axis["experiment_id"]]
         return cost if axis["field"] == "cost_multiplier" else reliability
@@ -150,23 +179,28 @@ class AdversarialRadiusAnalyzer:
             )
         return abs(limit - reference) / float(axis["scale"])
 
-    def _settings_at_radius(
+    def _settings_at_profile(
         self,
         radius: float,
-        active_axis_ids: set[str],
+        fractions: dict[str, float],
     ) -> dict[str, tuple[float, float]]:
         settings = copy.deepcopy(self.reference)
         for axis in self.axes:
-            if axis["axis_id"] not in active_axis_ids:
+            fraction = float(fractions.get(axis["axis_id"], 0.0))
+            if fraction <= 0:
                 continue
             experiment_id = axis["experiment_id"]
             cost, reliability = settings[experiment_id]
             reference = self._reference_value(axis)
             step = min(
-                radius * float(axis["scale"]),
+                radius * fraction * float(axis["scale"]),
                 abs(float(axis["limit"]) - reference),
             )
-            value = reference + step if axis["direction"] == "increase" else reference - step
+            value = (
+                reference + step
+                if axis["direction"] == "increase"
+                else reference - step
+            )
             if axis["field"] == "cost_multiplier":
                 cost = value
             else:
@@ -174,22 +208,29 @@ class AdversarialRadiusAnalyzer:
             settings[experiment_id] = (float(cost), float(reliability))
         return settings
 
-    def _cell_at_radius(
+    def _cell_at_profile(
         self,
         radius: float,
-        active_axis_ids: set[str],
+        fractions: dict[str, float],
     ) -> JointCell:
-        return self.joint._cell(self._settings_at_radius(radius, active_axis_ids))
+        return self.joint._cell(self._settings_at_profile(radius, fractions))
 
-    def _first_switch(
+    def _profile_max_radius(self, fractions: dict[str, float]) -> float:
+        caps: list[float] = []
+        for axis in self.axes:
+            fraction = float(fractions.get(axis["axis_id"], 0.0))
+            if fraction > 0:
+                caps.append(self._axis_cap(axis) / fraction)
+        if not caps:
+            raise AdversarialRadiusError("profile must move at least one axis")
+        return max(caps)
+
+    def _first_switch_profile(
         self,
-        active_axis_ids: set[str],
+        fractions: dict[str, float],
     ) -> tuple[bool, float | None, JointCell | None]:
-        active = [axis for axis in self.axes if axis["axis_id"] in active_axis_ids]
-        if not active:
-            raise AdversarialRadiusError("at least one active axis is required")
-        max_radius = max(self._axis_cap(axis) for axis in active)
-        at_limit = self._cell_at_radius(max_radius, active_axis_ids)
+        max_radius = self._profile_max_radius(fractions)
+        at_limit = self._cell_at_profile(max_radius, fractions)
         if at_limit.winner_action_id == self.target_action_id:
             return False, None, None
 
@@ -198,16 +239,32 @@ class AdversarialRadiusAnalyzer:
         tolerance = float(self.config["binary_tolerance"])
         while high - low > tolerance:
             mid = (low + high) / 2.0
-            cell = self._cell_at_radius(mid, active_axis_ids)
+            cell = self._cell_at_profile(mid, fractions)
             if cell.winner_action_id == self.target_action_id:
                 low = mid
             else:
                 high = mid
-        boundary = self._cell_at_radius(high, active_axis_ids)
+        boundary = self._cell_at_profile(high, fractions)
         return True, high, boundary
 
+    def _target_regret_gap(
+        self,
+        settings: dict[str, tuple[float, float]],
+        winner_action_id: str,
+    ) -> float:
+        summaries = {
+            item.action_id: item for item in self.joint._cell_summaries(settings)
+        }
+        return max(
+            0.0,
+            summaries[self.target_action_id].max_regret
+            - summaries[winner_action_id].max_regret,
+        )
+
     def _axis_threshold(self, axis: dict[str, Any]) -> AxisThreshold:
-        found, radius, boundary = self._first_switch({axis["axis_id"]})
+        fractions = {current["axis_id"]: 0.0 for current in self.axes}
+        fractions[axis["axis_id"]] = 1.0
+        found, radius, boundary = self._first_switch_profile(fractions)
         if not found or radius is None or boundary is None:
             return AxisThreshold(
                 axis_id=axis["axis_id"],
@@ -215,22 +272,34 @@ class AdversarialRadiusAnalyzer:
                 normalized_distance=None,
                 boundary_value=None,
                 winner_after_boundary=None,
-                regret_margin_after_boundary=None,
+                target_regret_gap_after_boundary=None,
             )
-        settings = dict(
-            (experiment_id, (cost, reliability))
+        settings = {
+            experiment_id: (cost, reliability)
             for experiment_id, cost, reliability in boundary.settings
-        )
-        value_pair = settings[axis["experiment_id"]]
-        boundary_value = value_pair[0] if axis["field"] == "cost_multiplier" else value_pair[1]
+        }
+        pair = settings[axis["experiment_id"]]
+        boundary_value = pair[0] if axis["field"] == "cost_multiplier" else pair[1]
         return AxisThreshold(
             axis_id=axis["axis_id"],
             found=True,
             normalized_distance=radius,
             boundary_value=boundary_value,
             winner_after_boundary=boundary.winner_action_id,
-            regret_margin_after_boundary=boundary.regret_margin,
+            target_regret_gap_after_boundary=self._target_regret_gap(
+                settings, boundary.winner_action_id
+            ),
         )
+
+    def _fractional_profiles(self) -> tuple[dict[str, float], ...]:
+        values = [float(value) for value in self.config["fraction_grid"]]
+        axis_ids = [axis["axis_id"] for axis in self.axes]
+        profiles: list[dict[str, float]] = []
+        for combination in product(values, repeat=len(axis_ids)):
+            if max(combination) < 1.0 - 1e-12:
+                continue
+            profiles.append(dict(zip(axis_ids, combination)))
+        return tuple(profiles)
 
     def analyze(self) -> AdversarialRadiusResult:
         baseline = self.joint._cell(self.reference)
@@ -239,22 +308,89 @@ class AdversarialRadiusAnalyzer:
                 "target action must win at the declared reference settings"
             )
 
-        active = {axis["axis_id"] for axis in self.axes}
-        found, radius, boundary = self._first_switch(active)
-        coordinated_settings = boundary.settings if boundary is not None else None
+        all_ones = {axis["axis_id"]: 1.0 for axis in self.axes}
+        coordinated_found, coordinated_radius, coordinated_boundary = (
+            self._first_switch_profile(all_ones)
+        )
+        coordinated_settings_dict = (
+            {
+                experiment_id: (cost, reliability)
+                for experiment_id, cost, reliability in coordinated_boundary.settings
+            }
+            if coordinated_boundary is not None
+            else None
+        )
+
+        profiles = self._fractional_profiles()
+        axis_order = tuple(axis["axis_id"] for axis in self.axes)
+        ray_candidates: list[
+            tuple[float, tuple[float, ...], dict[str, float], JointCell]
+        ] = []
+        for fractions in profiles:
+            found, radius, boundary = self._first_switch_profile(fractions)
+            if found and radius is not None and boundary is not None:
+                key = tuple(fractions[axis_id] for axis_id in axis_order)
+                ray_candidates.append((radius, key, fractions, boundary))
+
+        best = (
+            min(ray_candidates, key=lambda item: (item[0], item[1]))
+            if ray_candidates
+            else None
+        )
+        if best is not None:
+            minimum_radius, _key, minimum_fractions, minimum_boundary = best
+            minimum_settings_dict = {
+                experiment_id: (cost, reliability)
+                for experiment_id, cost, reliability in minimum_boundary.settings
+            }
+            minimum_fraction_tuple = tuple(
+                (axis_id, minimum_fractions[axis_id]) for axis_id in axis_order
+            )
+            minimum_target_gap = self._target_regret_gap(
+                minimum_settings_dict, minimum_boundary.winner_action_id
+            )
+        else:
+            minimum_radius = None
+            minimum_boundary = None
+            minimum_fraction_tuple = None
+            minimum_target_gap = None
+
         return AdversarialRadiusResult(
             analysis_id=self.config["analysis_id"],
             target_action_id=self.target_action_id,
             baseline_winner_action_id=baseline.winner_action_id,
             baseline_regret_margin=baseline.regret_margin,
-            coordinated_switch_found=found,
-            coordinated_radius=radius,
+            coordinated_switch_found=coordinated_found,
+            coordinated_radius=coordinated_radius,
             coordinated_winner_after_boundary=(
-                boundary.winner_action_id if boundary is not None else None
+                coordinated_boundary.winner_action_id
+                if coordinated_boundary is not None
+                else None
             ),
-            coordinated_regret_margin_after_boundary=(
-                boundary.regret_margin if boundary is not None else None
+            coordinated_target_regret_gap_after_boundary=(
+                self._target_regret_gap(
+                    coordinated_settings_dict,
+                    coordinated_boundary.winner_action_id,
+                )
+                if coordinated_boundary is not None
+                and coordinated_settings_dict is not None
+                else None
             ),
-            coordinated_settings=coordinated_settings,
+            coordinated_settings=(
+                coordinated_boundary.settings if coordinated_boundary is not None else None
+            ),
+            fractional_rays_tested=len(profiles),
+            minimum_ray_switch_found=best is not None,
+            minimum_ray_radius=minimum_radius,
+            minimum_ray_fractions=minimum_fraction_tuple,
+            minimum_ray_winner_after_boundary=(
+                minimum_boundary.winner_action_id
+                if minimum_boundary is not None
+                else None
+            ),
+            minimum_ray_target_regret_gap_after_boundary=minimum_target_gap,
+            minimum_ray_settings=(
+                minimum_boundary.settings if minimum_boundary is not None else None
+            ),
             axis_thresholds=tuple(self._axis_threshold(axis) for axis in self.axes),
         )
