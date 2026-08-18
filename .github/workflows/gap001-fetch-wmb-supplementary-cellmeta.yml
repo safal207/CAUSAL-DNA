@@ -20,12 +20,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download official Nature Supplementary Tables 1-25
+      - name: Download a valid official Nature Supplementary Tables archive
         run: |
-          curl -fL --retry 5 --retry-delay 3 \
-            -o /tmp/wmb-supplementary.zip \
+          set -euo pipefail
+          urls=(
+            'https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-023-06824-9/MediaObjects/41586_2023_6824_MOESM3_ESM.zip'
             'https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41586-023-06824-9/MediaObjects/41586_2023_6824_MOESM3_ESM.zip'
-          test -s /tmp/wmb-supplementary.zip
+          )
+          : > /tmp/download-diagnostics.txt
+          valid=0
+          for url in "${urls[@]}"; do
+            echo "TRY $url" | tee -a /tmp/download-diagnostics.txt
+            rm -f /tmp/candidate
+            curl -fL --retry 5 --retry-delay 3 -H 'Accept-Encoding: identity' \
+              -D /tmp/headers.txt -o /tmp/candidate "$url" || continue
+            ls -lh /tmp/candidate | tee -a /tmp/download-diagnostics.txt
+            file /tmp/candidate | tee -a /tmp/download-diagnostics.txt
+            echo 'FIRST_BYTES' | tee -a /tmp/download-diagnostics.txt
+            xxd -l 64 /tmp/candidate | tee -a /tmp/download-diagnostics.txt
+            echo 'LAST_BYTES' | tee -a /tmp/download-diagnostics.txt
+            tail -c 64 /tmp/candidate | xxd | tee -a /tmp/download-diagnostics.txt
+            cat /tmp/headers.txt >> /tmp/download-diagnostics.txt
+            if python - <<'PY'
+          import zipfile,sys
+          sys.exit(0 if zipfile.is_zipfile('/tmp/candidate') else 1)
+          PY
+            then
+              mv /tmp/candidate /tmp/wmb-supplementary.zip
+              valid=1
+              break
+            fi
+          done
+          if [ "$valid" -ne 1 ]; then
+            echo 'NO_VALID_ZIP' | tee -a /tmp/download-diagnostics.txt
+            exit 2
+          fi
           ls -lh /tmp/wmb-supplementary.zip
 
       - name: Inventory metadata-like files
@@ -47,10 +76,7 @@ jobs:
           print('selected',len(selected))
           for n in selected:
               print(n)
-              try:
-                  z.extract(n,'/tmp/extracted')
-              except Exception as e:
-                  print('EXTRACT_FAIL',n,e)
+              z.extract(n,'/tmp/extracted')
           PY
           find /tmp/extracted -type f -printf '%p\t%k KB\n' | head -250
 
@@ -74,17 +100,18 @@ jobs:
                           for _,line in zip(range(8),f): print(line.rstrip()[:1000])
                   elif name.endswith(('.xlsx','.xlsm')):
                       with zipfile.ZipFile(p) as x:
-                          members=x.namelist()
-                          print('xlsx members',members[:30])
+                          print('xlsx members',x.namelist()[:40])
               except Exception as e:
                   print('PREVIEW_FAIL',e)
           PY
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: WMB-supplementary-cellmeta-candidates
           path: |
+            /tmp/download-diagnostics.txt
             /tmp/all-files.txt
             /tmp/candidates.txt
             /tmp/extracted
-          if-no-files-found: error
+          if-no-files-found: warn
