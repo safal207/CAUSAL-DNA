@@ -7,11 +7,13 @@ on:
       - agent/causal-dna-001-bootstrap
     paths:
       - 'analysis/gap001_inspect_h5ad.py'
+      - 'analysis/gap001_query_h5ad_locus.py'
       - '.github/workflows/gap001-gse246791-hypothalamus-probe.yml'
       - 'discovery/CDNA-001-GSE246791-hypothalamus-samples.json'
   pull_request:
     paths:
       - 'analysis/gap001_inspect_h5ad.py'
+      - 'analysis/gap001_query_h5ad_locus.py'
       - '.github/workflows/gap001-gse246791-hypothalamus-probe.yml'
 
 permissions:
@@ -36,10 +38,9 @@ jobs:
             -o /tmp/GSM7877104.h5ad.gz \
             'https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSM7877104&file=GSM7877104_CEMBA200312_6H_rm_dlt.h5ad.gz&format=file'
           test -s /tmp/GSM7877104.h5ad.gz
-          ls -lh /tmp/GSM7877104.h5ad.gz
           gzip -dc /tmp/GSM7877104.h5ad.gz > /tmp/GSM7877104.h5ad
           test -s /tmp/GSM7877104.h5ad
-          ls -lh /tmp/GSM7877104.h5ad
+          ls -lh /tmp/GSM7877104.h5ad.gz /tmp/GSM7877104.h5ad
 
       - name: Inspect persisted matrix and coordinate structure
         run: |
@@ -50,9 +51,36 @@ jobs:
             > /tmp/probe.log
           grep -E '"path":|encoding-type|shape|dtype' /tmp/probe.log | head -240
 
-      - name: Upload structure artifact
+      - name: Query exact locus in 500-bp and raw insertion matrices
+        run: |
+          python analysis/gap001_query_h5ad_locus.py \
+            /tmp/GSM7877104.h5ad \
+            --sample-id CEMBA200312_6H \
+            --geo-accession GSM7877104 \
+            --chrom chr8 \
+            --position0 91374371 \
+            --neighbor-bins 10 \
+            --insertion-radius 250 \
+            --output /tmp/GSM7877104-rs1421085-locus.json \
+            > /tmp/locus.log
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/GSM7877104-rs1421085-locus.json'))
+          t=p['target_500bp_tile']; i=p['raw_insertion_window']
+          print('nuclei=',p['nuclei'])
+          print('target_tile=',t)
+          print('insertion_window_summary=',{k:v for k,v in i.items() if k!='by_position'})
+          print('top_insertion_positions=', sorted(i['by_position'], key=lambda x:(-x['nuclei_with_insertion'], abs(x['relative_to_variant_bp'])))[:30])
+          print('neighbor_tiles=')
+          for row in p['neighbor_tiles']:
+              print(row)
+          PY
+
+      - name: Upload locus artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GSM7877104-h5ad-structure
-          path: /tmp/GSM7877104-h5ad-structure.json
+          name: GSM7877104-rs1421085-locus
+          path: |
+            /tmp/GSM7877104-h5ad-structure.json
+            /tmp/GSM7877104-rs1421085-locus.json
           if-no-files-found: error
