@@ -8,7 +8,7 @@ For CDNA-001 the current target action is `E5_MATCHED_MULTIOMIC`.
 
 ## Metric
 
-The first implementation uses a declared weighted L-infinity distance:
+The implementation uses a declared weighted L-infinity distance:
 
 ```text
 d(theta, theta0) = max_i |theta_i - theta0_i| / scale_i
@@ -23,13 +23,55 @@ Current adverse directions are:
 - `E5` cost increases;
 - `E5` reliability decreases.
 
-These directions worsen E5 relative to its competitors under the declared one-step information-gain-per-cost minimax-regret model.
+## Why the all-axis corner is not enough
 
-## Two boundary views
+Minimax interval regret is a relative decision criterion. Moving another apparently adverse coordinate can change the regret of several actions at once. Therefore the path where all coordinates move together is **not assumed to be globally worst**.
 
-### Single-axis threshold
+CAUSAL-DNA keeps the all-axis coordinated ray as a diagnostic, but the primary radius is the minimum first-switch distance across a declared family of normalized rays.
 
-Each adverse axis is moved alone until the first-action winner changes or the declared search limit is reached.
+For the current configuration, every axis receives a fraction from:
+
+```text
+0.0, 0.5, 1.0
+```
+
+and only profiles with `max(fraction)=1.0` are retained. With four axes this yields 65 normalized rays.
+
+This is still a finite ray family, not a proof over every possible continuous direction in parameter space. That limitation is explicit.
+
+## First-switch detection and re-entry
+
+A second subtlety is that a ray can show:
+
+```text
+E5 -> competitor -> E5
+```
+
+as the perturbation grows. Looking only at the ray endpoint would miss the earlier decision boundary.
+
+Each ray therefore uses:
+
+```text
+coarse scan -> first non-E5 bracket -> binary refinement
+```
+
+The coarse scan resolution and binary tolerance are both declared in configuration. The reported radius is a **scan-refined first-switch radius** over the declared ray family.
+
+## Boundary views
+
+### Minimum ray-family radius
+
+The primary result is the smallest first-switch radius found across all normalized fractional rays. The result records:
+
+- the normalized distance;
+- the ray fractions;
+- the replacement winner;
+- the target-versus-winner regret gap;
+- the raw cost/reliability settings at the boundary.
+
+### Single-axis thresholds
+
+Each adverse axis is also moved alone until the first-action winner changes or the declared search limit is reached.
 
 A missing threshold means only:
 
@@ -37,13 +79,9 @@ A missing threshold means only:
 
 It does not imply infinite robustness.
 
-### Coordinated worst-corner radius
+### All-axis coordinated radius
 
-All adverse axes move together at the same normalized radius. An axis saturates when it reaches its declared limit.
-
-The first radius at which `E5` is no longer the minimax-regret action is refined by binary search to the configured tolerance.
-
-This coordinated radius is a robustness property of the declared rectangular planning model. It is not a biological distance, confidence interval, or probability.
+All adverse axes move together at the same normalized radius. This remains useful for comparison but is no longer treated as the definition of the adversarial radius.
 
 ## Family-linked stress settings
 
