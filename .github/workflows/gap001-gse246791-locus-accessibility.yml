@@ -32,6 +32,15 @@ jobs:
           ls -lh /tmp/GSE246791_wmb_enhancer.tar.gz
           tar -tzf /tmp/GSE246791_wmb_enhancer.tar.gz | head -40 || true
 
+      - name: Audit archive text formats before interpreting absence
+        run: |
+          echo '--- README ---'
+          tar -xOzf /tmp/GSE246791_wmb_enhancer.tar.gz wmb_enhancer/README.txt | head -80
+          echo '--- candidate_enhancers head ---'
+          tar -xOzf /tmp/GSE246791_wmb_enhancer.tar.gz wmb_enhancer/candidate_enhancers.mm10.txt | head -12
+          echo '--- positive_pdc head ---'
+          tar -xOzf /tmp/GSE246791_wmb_enhancer.tar.gz wmb_enhancer/positive_pdc.coacc.bedpe | head -8
+
       - name: Scan exact mouse rs1421085 ortholog
         run: |
           python analysis/gap001_scan_gse246791_enhancers.py \
