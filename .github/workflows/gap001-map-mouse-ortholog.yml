@@ -1,0 +1,59 @@
+name: GAP-001 exact mouse ortholog coordinate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_map_mouse_ortholog.py'
+      - '.github/workflows/gap001-map-mouse-ortholog.yml'
+      - 'discovery/DISCOVERY-SPRINT-001.md'
+  pull_request:
+    paths:
+      - 'analysis/gap001_map_mouse_ortholog.py'
+      - '.github/workflows/gap001-map-mouse-ortholog.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  map-ortholog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download UCSC liftOver and mm9 to mm10 chain
+        run: |
+          curl -fsSLo /tmp/liftOver https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/liftOver
+          chmod +x /tmp/liftOver
+          curl -fsSLo /tmp/mm9ToMm10.over.chain.gz https://hgdownload.soe.ucsc.edu/goldenPath/mm9/liftOver/mm9ToMm10.over.chain.gz
+          gunzip /tmp/mm9ToMm10.over.chain.gz
+
+      - name: Lift published rs1421085 enhancer-region fosmid from mm9 to mm10
+        run: |
+          # Laber et al. report mm9 chr8:93911541-93950923 for the rs1421085-en fosmid.
+          # BED is 0-based half-open, so subtract one from the published start.
+          printf 'chr8\t93911540\t93950923\trs1421085-en\n' > /tmp/rs1421085-mm9.bed
+          /tmp/liftOver \
+            /tmp/rs1421085-mm9.bed \
+            /tmp/mm9ToMm10.over.chain \
+            /tmp/rs1421085-mm10.bed \
+            /tmp/unmapped.bed
+          test -s /tmp/rs1421085-mm10.bed
+          cat /tmp/rs1421085-mm10.bed
+
+      - name: Find exact published guide sequence and variant base
+        run: |
+          python analysis/gap001_map_mouse_ortholog.py \
+            --mapped-bed /tmp/rs1421085-mm10.bed \
+            --genome mm10 \
+            --output /tmp/CDNA-001-rs1421085-mouse-ortholog.json
+          cat /tmp/CDNA-001-rs1421085-mouse-ortholog.json
+
+      - name: Upload coordinate evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CDNA-001-rs1421085-mouse-ortholog
+          path: /tmp/CDNA-001-rs1421085-mouse-ortholog.json
+          if-no-files-found: error
