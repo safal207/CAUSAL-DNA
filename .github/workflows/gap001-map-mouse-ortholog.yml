@@ -43,9 +43,16 @@ jobs:
           test -s /tmp/rs1421085-mm10.bed
           cat /tmp/rs1421085-mm10.bed
 
+      - name: Download mm10 chromosome 8 reference sequence
+        run: |
+          curl -fsSLo /tmp/chr8.fa.gz https://hgdownload.soe.ucsc.edu/goldenPath/mm10/chromosomes/chr8.fa.gz
+          gunzip /tmp/chr8.fa.gz
+          test -s /tmp/chr8.fa
+
       - name: Find exact published guide sequence and variant base
         run: |
           python analysis/gap001_map_mouse_ortholog.py \
+            --fasta /tmp/chr8.fa \
             --mapped-bed /tmp/rs1421085-mm10.bed \
             --genome mm10 \
             --output /tmp/CDNA-001-rs1421085-mouse-ortholog.json
