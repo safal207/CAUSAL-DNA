@@ -1,0 +1,146 @@
+name: GAP-001 GSE246791 hypothalamus all8 locus replication
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_query_h5ad_locus.py'
+      - 'analysis/gap001_aggregate_hypothalamus_locus.py'
+      - '.github/workflows/gap001-gse246791-hypothalamus-all8.yml'
+      - 'discovery/CDNA-001-GSE246791-hypothalamus-samples.json'
+  pull_request:
+    paths:
+      - 'analysis/gap001_query_h5ad_locus.py'
+      - 'analysis/gap001_aggregate_hypothalamus_locus.py'
+      - '.github/workflows/gap001-gse246791-hypothalamus-all8.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  query-locus:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - region: 6H
+            rep: 1
+            gsm: GSM7877104
+            sample: CEMBA200312_6H
+          - region: 6H
+            rep: 2
+            gsm: GSM7877105
+            sample: CEMBA200319_6H
+          - region: 7J
+            rep: 1
+            gsm: GSM7877102
+            sample: CEMBA200305_7J
+          - region: 7J
+            rep: 2
+            gsm: GSM7877103
+            sample: CEMBA200520_7J
+          - region: 8K
+            rep: 1
+            gsm: GSM7877106
+            sample: CEMBA200312_8K
+          - region: 8K
+            rep: 2
+            gsm: GSM7877107
+            sample: CEMBA200319_8K
+          - region: 9L
+            rep: 1
+            gsm: GSM7876880
+            sample: CEMBA200305_9L
+          - region: 9L
+            rep: 2
+            gsm: GSM7876882
+            sample: CEMBA200520_9L
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install HDF5 reader
+        run: python -m pip install 'h5py>=3.11,<4'
+
+      - name: Download ${{ matrix.region }} rep${{ matrix.rep }}
+        env:
+          GSM: ${{ matrix.gsm }}
+          SAMPLE: ${{ matrix.sample }}
+        run: |
+          file="${GSM}_${SAMPLE}_rm_dlt.h5ad.gz"
+          url="https://www.ncbi.nlm.nih.gov/geo/download/?acc=${GSM}&file=${file}&format=file"
+          echo "$url"
+          curl -fL --retry 5 --retry-delay 3 -o /tmp/sample.h5ad.gz "$url"
+          test -s /tmp/sample.h5ad.gz
+          gzip -dc /tmp/sample.h5ad.gz > /tmp/sample.h5ad
+          test -s /tmp/sample.h5ad
+          ls -lh /tmp/sample.h5ad.gz /tmp/sample.h5ad
+
+      - name: Query exact locus
+        run: |
+          python analysis/gap001_query_h5ad_locus.py \
+            /tmp/sample.h5ad \
+            --sample-id '${{ matrix.sample }}' \
+            --geo-accession '${{ matrix.gsm }}' \
+            --chrom chr8 \
+            --position0 91374371 \
+            --neighbor-bins 10 \
+            --insertion-radius 250 \
+            --output '/tmp/${{ matrix.gsm }}-rs1421085-locus.json'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: locus-${{ matrix.gsm }}
+          path: /tmp/${{ matrix.gsm }}-rs1421085-locus.json
+          if-no-files-found: error
+
+  aggregate:
+    needs: query-locus
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: locus-*
+          path: /tmp/locus-results
+          merge-multiple: true
+
+      - name: Aggregate without collapsing biological replicates
+        run: |
+          python analysis/gap001_aggregate_hypothalamus_locus.py \
+            /tmp/locus-results \
+            --output /tmp/CDNA-001-GSE246791-hypothalamus-all8.json \
+            > /tmp/aggregate.log
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/CDNA-001-GSE246791-hypothalamus-all8.json'))
+          print('samples=',p['sample_count'])
+          print('target_positive=',p['samples_with_target_tile_signal'])
+          print('insertion_window_positive=',p['samples_with_insertion_window_signal'])
+          print('REGIONS')
+          for r in p['regions']: print(r)
+          print('SAMPLES')
+          for r in p['samples']:
+              print(r['region'], r['geo_accession'], 'n=',r['nuclei'],
+                    'tile=',r['target_tile_nuclei'],r['target_tile_fraction'],
+                    'ins=',r['insertion_window_nuclei'],r['insertion_window_fraction'],
+                    'ratio=',r['target_over_local_median'])
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CDNA-001-GSE246791-hypothalamus-all8
+          path: /tmp/CDNA-001-GSE246791-hypothalamus-all8.json
+          if-no-files-found: error
