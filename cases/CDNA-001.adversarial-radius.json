@@ -1,0 +1,43 @@
+{
+  "analysis_id": "CDNA-001-ADV-RADIUS-001",
+  "case_id": "CDNA-001",
+  "disclaimer": "This radius measures stability of a planning recommendation under declared decision-model perturbations. It is not biological evidence, causal confidence, or a probability of mechanism truth.",
+  "target_action_id": "E5_MATCHED_MULTIOMIC",
+  "distance_metric": "weighted_linf",
+  "decision_rule": "minimax_interval_regret",
+  "binary_tolerance": 0.002,
+  "axes": [
+    {
+      "axis_id": "TF_FAMILY_COST_DOWN",
+      "experiment_id": "E1_ARID5B_OCCUPANCY",
+      "field": "cost_multiplier",
+      "direction": "decrease",
+      "scale": 0.25,
+      "limit": 0.25
+    },
+    {
+      "axis_id": "CHROMATIN_FAMILY_COST_DOWN",
+      "experiment_id": "E3_ALLELE_SNATAC",
+      "field": "cost_multiplier",
+      "direction": "decrease",
+      "scale": 0.25,
+      "limit": 0.25
+    },
+    {
+      "axis_id": "E5_COST_UP",
+      "experiment_id": "E5_MATCHED_MULTIOMIC",
+      "field": "cost_multiplier",
+      "direction": "increase",
+      "scale": 0.25,
+      "limit": 2.0
+    },
+    {
+      "axis_id": "E5_RELIABILITY_DOWN",
+      "experiment_id": "E5_MATCHED_MULTIOMIC",
+      "field": "reliability",
+      "direction": "decrease",
+      "scale": 0.10,
+      "limit": 0.40
+    }
+  ]
+}
