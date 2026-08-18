@@ -11,6 +11,7 @@
     "target_action_id",
     "distance_metric",
     "decision_rule",
+    "coarse_scan_step",
     "binary_tolerance",
     "fraction_grid",
     "axes"
@@ -22,6 +23,7 @@
     "target_action_id": {"type": "string", "minLength": 1},
     "distance_metric": {"const": "weighted_linf"},
     "decision_rule": {"const": "minimax_interval_regret"},
+    "coarse_scan_step": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.25},
     "binary_tolerance": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.05},
     "fraction_grid": {
       "type": "array",
