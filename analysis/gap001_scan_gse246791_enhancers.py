@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Scan the compact GSE246791 enhancer/cCRE archive at one exact locus.
 
-The scanner treats genomic intervals as BED-style 0-based half-open coordinates.
-It searches every text-like member of the tar archive for intervals overlapping
-the exact mouse rs1421085 ortholog and reports both direct overlaps and nearest
-intervals when no overlap is present.
+The scanner supports both BED/BEDPE records and the archive's documented
+`chr:start-end` candidate-enhancer format. Coordinates are treated as mm10 and
+BED-like 0-based half-open intervals for overlap testing.
 
 A cCRE/accessibility overlap is descriptive evidence only. It does not establish
 allele dependence, target gene, TF occupancy, or causal mediation.
@@ -14,11 +13,13 @@ from __future__ import annotations
 import argparse
 import gzip
 import heapq
-import io
 import json
+import re
 import tarfile
 from pathlib import Path
 from typing import Any, BinaryIO
+
+REGION_RE = re.compile(r"^(chr[^:]+):(\d+)-(\d+)$")
 
 
 def interval_distance(position0: int, start: int, end: int) -> int:
@@ -29,7 +30,7 @@ def interval_distance(position0: int, start: int, end: int) -> int:
     return position0 - end + 1
 
 
-def parse_interval(fields: list[str], offset: int = 0) -> tuple[str, int, int] | None:
+def parse_bed_interval(fields: list[str], offset: int = 0) -> tuple[str, int, int] | None:
     if len(fields) < offset + 3:
         return None
     chrom = fields[offset]
@@ -41,6 +42,35 @@ def parse_interval(fields: list[str], offset: int = 0) -> tuple[str, int, int] |
     if start < 0 or end <= start:
         return None
     return chrom, start, end
+
+
+def parse_region_token(token: str) -> tuple[str, int, int] | None:
+    match = REGION_RE.match(token)
+    if not match:
+        return None
+    chrom, start_text, end_text = match.groups()
+    start, end = int(start_text), int(end_text)
+    if start < 0 or end <= start:
+        return None
+    return chrom, start, end
+
+
+def candidate_intervals(fields: list[str]) -> list[tuple[str, int, int, str]]:
+    intervals: list[tuple[str, int, int, str]] = []
+    # Archive candidate_enhancers.mm10.txt uses one chr:start-end token per row.
+    if fields:
+        region = parse_region_token(fields[0])
+        if region is not None:
+            intervals.append((*region, "region_token"))
+            return intervals
+    # BED or BEDPE.
+    left = parse_bed_interval(fields, 0)
+    if left is not None:
+        intervals.append((*left, "left"))
+    right = parse_bed_interval(fields, 3)
+    if right is not None:
+        intervals.append((*right, "right"))
+    return intervals
 
 
 def scan_member(
@@ -64,12 +94,7 @@ def scan_member(
         if not text:
             continue
         fields = text.split("\t")
-        # Scan first BED triplet, and the second BEDPE triplet when present.
-        for side, offset in (("left", 0), ("right", 3)):
-            interval = parse_interval(fields, offset)
-            if interval is None:
-                continue
-            current_chrom, start, end = interval
+        for current_chrom, start, end, side in candidate_intervals(fields):
             if current_chrom != chrom:
                 continue
             parsed_intervals += 1
@@ -115,6 +140,7 @@ def main() -> int:
     global_nearest: list[tuple[int, str, dict[str, Any]]] = []
     scanned_members = 0
     parsed_intervals = 0
+    parsed_by_member: dict[str, int] = {}
 
     with tarfile.open(args.archive, "r:*") as archive:
         for member in archive.getmembers():
@@ -134,9 +160,8 @@ def main() -> int:
                     nearest_k=args.nearest_k,
                 )
             except (OSError, EOFError):
-                # Ignore non-text members that happen to use a .gz suffix or are corrupt;
-                # the result reports the number of parsed chromosome intervals.
                 continue
+            parsed_by_member[member.name] = count
             parsed_intervals += count
             all_overlaps.extend(overlaps)
             for neg_distance, key, record in nearest:
@@ -148,8 +173,7 @@ def main() -> int:
                     heapq.heapreplace(global_nearest, item)
 
     nearest_sorted = [
-        item[2]
-        for item in sorted(global_nearest, key=lambda x: (-x[0], x[1]))
+        item[2] for item in sorted(global_nearest, key=lambda x: (-x[0], x[1]))
     ]
     all_overlaps.sort(
         key=lambda item: (item["member"], item["start_0_based"], item["line_number"])
@@ -165,13 +189,15 @@ def main() -> int:
         },
         "archive_members_scanned": scanned_members,
         "chromosome_intervals_parsed": parsed_intervals,
+        "chromosome_intervals_parsed_by_member": parsed_by_member,
         "overlap_count": len(all_overlaps),
         "overlaps": all_overlaps,
         "nearest_intervals": nearest_sorted,
         "interpretation_guard": (
-            "An overlap means the coordinate falls inside a published accessible/cCRE "
-            "interval represented in this archive. It does not show allele-specific "
-            "accessibility, TF occupancy, enhancer-to-Irx3 targeting, or causality."
+            "An overlap means the coordinate falls inside a published candidate "
+            "enhancer/cCRE or PDC interval represented in this archive. It does not "
+            "show allele-specific accessibility, TF occupancy, enhancer-to-Irx3 "
+            "targeting, or causality."
         ),
         "discovery_level_ceiling": "D1_DESCRIPTIVE",
     }
