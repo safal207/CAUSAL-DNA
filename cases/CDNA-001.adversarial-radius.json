@@ -5,6 +5,7 @@
   "target_action_id": "E5_MATCHED_MULTIOMIC",
   "distance_metric": "weighted_linf",
   "decision_rule": "minimax_interval_regret",
+  "coarse_scan_step": 0.05,
   "binary_tolerance": 0.002,
   "fraction_grid": [0.0, 0.5, 1.0],
   "axes": [
