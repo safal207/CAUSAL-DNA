@@ -1,32 +1,31 @@
 #!/usr/bin/env python3
 """Map the published mouse ortholog sequence of human rs1421085.
 
-Input is a BED interval already lifted to the requested assembly. The script
-fetches that interval sequence from the UCSC Genome Browser API and requires a
-unique exact match to the published WT CRISPR guide sequence (or its reverse
-complement). It then emits the exact genomic base corresponding to the human
-T>C site.
+The exact coordinate is resolved by scanning a full chromosome FASTA for the
+published WT CRISPR guide (or its reverse complement). A separately lifted
+published fosmid interval is used only as a provenance cross-check, never as the
+source of truth for the SNP coordinate.
 
-This is a coordinate/provenance utility only. It makes no causal claim.
+This utility maps sequence coordinates only. It makes no causal claim.
 """
 from __future__ import annotations
 
 import argparse
 import json
-import urllib.parse
-import urllib.request
 from pathlib import Path
 
 WT_GUIDE = "TAATCAATACGATGCCTT"
 WT_GUIDE_RC = "AAGGCATCGTATTGATTA"
-# The homologous T>C site is represented as A>G on WT_GUIDE orientation and
-# T>C on its reverse-complement orientation.
 TARGET_OFFSET = {WT_GUIDE: 8, WT_GUIDE_RC: 9}
 ALLELES = {WT_GUIDE: ("A", "G"), WT_GUIDE_RC: ("T", "C")}
 
 
 def read_single_bed(path: Path) -> tuple[str, int, int]:
-    rows = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#")]
+    rows = [
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
     if len(rows) != 1:
         raise ValueError(f"expected exactly one mapped BED row, got {len(rows)}")
     fields = rows[0].split("\t")
@@ -38,15 +37,22 @@ def read_single_bed(path: Path) -> tuple[str, int, int]:
     return chrom, start, end
 
 
-def fetch_sequence(genome: str, chrom: str, start: int, end: int) -> str:
-    params = urllib.parse.urlencode({"genome": genome, "chrom": chrom, "start": start, "end": end})
-    url = f"https://api.genome.ucsc.edu/getData/sequence?{params}"
-    with urllib.request.urlopen(url, timeout=60) as response:
-        payload = json.load(response)
-    dna = payload.get("dna")
-    if not isinstance(dna, str) or not dna:
-        raise RuntimeError(f"UCSC sequence API returned no DNA for {chrom}:{start}-{end}")
-    return dna.upper()
+def read_fasta(path: Path) -> tuple[str, str]:
+    header: str | None = None
+    sequence_parts: list[str] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith(">"):
+            if header is not None:
+                raise ValueError("expected a single-record chromosome FASTA")
+            header = line[1:].split()[0]
+        else:
+            sequence_parts.append(line.upper())
+    if header is None or not sequence_parts:
+        raise ValueError("invalid FASTA")
+    return header, "".join(sequence_parts)
 
 
 def find_all(sequence: str, needle: str) -> list[int]:
@@ -60,23 +66,47 @@ def find_all(sequence: str, needle: str) -> list[int]:
         offset = index + 1
 
 
-def map_site(genome: str, chrom: str, start: int, end: int, sequence: str) -> dict:
+def map_site(
+    genome: str,
+    chrom: str,
+    sequence: str,
+    lifted_interval: tuple[str, int, int] | None,
+) -> dict:
     candidates: list[tuple[str, int]] = []
     for anchor in (WT_GUIDE, WT_GUIDE_RC):
         for index in find_all(sequence, anchor):
             candidates.append((anchor, index))
     if len(candidates) != 1:
         raise RuntimeError(
-            "published WT guide must map exactly once inside lifted interval; "
-            f"found {len(candidates)} matches: {candidates}"
+            "published WT guide must map exactly once on the chromosome; "
+            f"found {len(candidates)} matches: {candidates[:20]}"
         )
-    anchor, local_start = candidates[0]
+
+    anchor, anchor_start0 = candidates[0]
     offset = TARGET_OFFSET[anchor]
     ref, alt = ALLELES[anchor]
-    base0 = start + local_start + offset
-    observed = sequence[local_start + offset]
+    base0 = anchor_start0 + offset
+    observed = sequence[base0]
     if observed != ref:
         raise RuntimeError(f"anchor matched but target base is {observed}, expected {ref}")
+
+    crosscheck = None
+    if lifted_interval is not None:
+        lifted_chrom, lifted_start, lifted_end = lifted_interval
+        crosscheck = {
+            "lifted_fosmid_chrom": lifted_chrom,
+            "lifted_fosmid_interval_0_based_half_open": [lifted_start, lifted_end],
+            "same_chromosome": lifted_chrom == chrom,
+            "exact_site_inside_lifted_fosmid": lifted_chrom == chrom and lifted_start <= base0 < lifted_end,
+        }
+        if lifted_chrom == chrom:
+            if base0 < lifted_start:
+                crosscheck["distance_to_lifted_fosmid_bp"] = lifted_start - base0
+            elif base0 >= lifted_end:
+                crosscheck["distance_to_lifted_fosmid_bp"] = base0 - lifted_end + 1
+            else:
+                crosscheck["distance_to_lifted_fosmid_bp"] = 0
+
     return {
         "genome": genome,
         "chrom": chrom,
@@ -85,14 +115,20 @@ def map_site(genome: str, chrom: str, start: int, end: int, sequence: str) -> di
         "reference_on_assembly_strand": ref,
         "alternate_on_assembly_strand": alt,
         "human_variant": "rs1421085 T>C",
-        "anchor_orientation": "published_guide" if anchor == WT_GUIDE else "reverse_complement_of_published_guide",
+        "anchor_start_0_based": anchor_start0,
+        "anchor_orientation": (
+            "published_guide"
+            if anchor == WT_GUIDE
+            else "reverse_complement_of_published_guide"
+        ),
         "published_wt_guide": WT_GUIDE,
         "matched_sequence": anchor,
-        "lifted_search_interval_0_based_half_open": [start, end],
+        "fosmid_crosscheck": crosscheck,
         "provenance": [
             "Laber et al. Science Advances 2021 PMID:34290091",
             "published guide: TAATCAATACGATGCCTT; PAM AGG",
             "published rs1421085-enhancer fosmid: mm9 chr8:93911541-93950923",
+            "UCSC mm10 chromosome FASTA",
         ],
         "claim_scope": "coordinate mapping only; not biological evidence",
     }
@@ -100,14 +136,15 @@ def map_site(genome: str, chrom: str, start: int, end: int, sequence: str) -> di
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mapped-bed", required=True, type=Path)
+    parser.add_argument("--fasta", required=True, type=Path)
+    parser.add_argument("--mapped-bed", type=Path)
     parser.add_argument("--genome", default="mm10")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
-    chrom, start, end = read_single_bed(args.mapped_bed)
-    sequence = fetch_sequence(args.genome, chrom, start, end)
-    result = map_site(args.genome, chrom, start, end, sequence)
+    chrom, sequence = read_fasta(args.fasta)
+    lifted = read_single_bed(args.mapped_bed) if args.mapped_bed else None
+    result = map_site(args.genome, chrom, sequence, lifted)
     text = json.dumps(result, indent=2, sort_keys=True)
     print(text)
     if args.output:
