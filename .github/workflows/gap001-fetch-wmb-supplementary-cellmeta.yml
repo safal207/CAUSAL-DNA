@@ -7,6 +7,9 @@ on:
       - agent/causal-dna-001-bootstrap
     paths:
       - '.github/workflows/gap001-fetch-wmb-supplementary-cellmeta.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/gap001-fetch-wmb-supplementary-cellmeta.yml'
 
 permissions:
   contents: read
@@ -55,7 +58,7 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import csv, gzip, json, zipfile
+          import gzip, zipfile
           root=Path('/tmp/extracted')
           for p in sorted(root.rglob('*')):
               if not p.is_file():
