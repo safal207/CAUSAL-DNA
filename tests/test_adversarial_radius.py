@@ -48,6 +48,23 @@ class AdversarialRadiusTests(unittest.TestCase):
             self.assertAlmostEqual(max(profile.values()), 1.0)
         self.assertEqual(self.result.fractional_rays_tested, len(profiles))
 
+    def test_first_switch_is_detected_even_if_target_reenters_at_endpoint(self):
+        profile = {
+            "TF_FAMILY_COST_DOWN": 0.5,
+            "CHROMATIN_FAMILY_COST_DOWN": 1.0,
+            "E5_COST_UP": 0.0,
+            "E5_RELIABILITY_DOWN": 0.0,
+        }
+        endpoint_radius = self.analyzer._profile_max_radius(profile)
+        endpoint = self.analyzer._cell_at_profile(endpoint_radius, profile)
+        self.assertEqual(endpoint.winner_action_id, self.config["target_action_id"])
+        found, radius, boundary = self.analyzer._first_switch_profile(profile)
+        self.assertTrue(found)
+        self.assertIsNotNone(radius)
+        self.assertLess(float(radius), endpoint_radius)
+        self.assertIsNotNone(boundary)
+        self.assertNotEqual(boundary.winner_action_id, self.config["target_action_id"])
+
     def test_minimum_ray_boundary_if_found_changes_winner(self):
         if not self.result.minimum_ray_switch_found:
             self.assertIsNone(self.result.minimum_ray_radius)
@@ -111,6 +128,12 @@ class AdversarialRadiusTests(unittest.TestCase):
     def test_fraction_grid_must_span_zero_to_one(self):
         config = copy.deepcopy(self.config)
         config["fraction_grid"] = [0.0, 0.5]
+        with self.assertRaises(AdversarialRadiusError):
+            AdversarialRadiusAnalyzer(self.plan, self.joint, config)
+
+    def test_scan_step_cannot_be_smaller_than_binary_tolerance(self):
+        config = copy.deepcopy(self.config)
+        config["coarse_scan_step"] = 0.001
         with self.assertRaises(AdversarialRadiusError):
             AdversarialRadiusAnalyzer(self.plan, self.joint, config)
 
