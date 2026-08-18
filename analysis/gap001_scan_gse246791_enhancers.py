@@ -12,12 +12,13 @@ allele dependence, target gene, TF occupancy, or causal mediation.
 from __future__ import annotations
 
 import argparse
+import gzip
 import heapq
 import io
 import json
 import tarfile
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 
 def interval_distance(position0: int, start: int, end: int) -> int:
@@ -44,7 +45,7 @@ def parse_interval(fields: list[str], offset: int = 0) -> tuple[str, int, int] |
 
 def scan_member(
     name: str,
-    handle: io.BufferedReader,
+    handle: BinaryIO,
     *,
     chrom: str,
     position0: int,
@@ -86,7 +87,6 @@ def scan_member(
             if distance == 0:
                 overlaps.append(record)
             else:
-                # max-heap via negative distance; stable key avoids comparing dicts.
                 key = f"{name}:{line_number}:{side}"
                 item = (-distance, key, record)
                 if len(nearest) < nearest_k:
@@ -94,6 +94,12 @@ def scan_member(
                 elif distance < -nearest[0][0]:
                     heapq.heapreplace(nearest, item)
     return overlaps, nearest, parsed_intervals
+
+
+def member_stream(name: str, extracted: BinaryIO) -> BinaryIO:
+    if name.endswith(".gz"):
+        return gzip.GzipFile(fileobj=extracted, mode="rb")
+    return extracted
 
 
 def main() -> int:
@@ -118,13 +124,19 @@ def main() -> int:
             if extracted is None:
                 continue
             scanned_members += 1
-            overlaps, nearest, count = scan_member(
-                member.name,
-                extracted,
-                chrom=args.chrom,
-                position0=args.position0,
-                nearest_k=args.nearest_k,
-            )
+            stream = member_stream(member.name, extracted)
+            try:
+                overlaps, nearest, count = scan_member(
+                    member.name,
+                    stream,
+                    chrom=args.chrom,
+                    position0=args.position0,
+                    nearest_k=args.nearest_k,
+                )
+            except (OSError, EOFError):
+                # Ignore non-text members that happen to use a .gz suffix or are corrupt;
+                # the result reports the number of parsed chromosome intervals.
+                continue
             parsed_intervals += count
             all_overlaps.extend(overlaps)
             for neg_distance, key, record in nearest:
