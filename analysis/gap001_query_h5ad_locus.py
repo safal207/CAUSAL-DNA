@@ -3,7 +3,8 @@
 
 Reads only persisted sparse-matrix indices plus small targeted data slices.
 Reports the exact 500-bp tile and raw Tn5 insertion activity around the mapped
-mouse ortholog of human rs1421085.
+mouse ortholog of human rs1421085, preserving the exact H5AD nucleus barcodes
+for downstream joins to the authors' official cell annotations.
 
 This is descriptive wild-type atlas evidence. It cannot establish allele
 specificity, enhancer target, TF occupancy, or causal mediation.
@@ -68,6 +69,15 @@ def csr_hits(group: h5py.Group, low_col: int, high_col_exclusive: int):
     return rows.astype(np.int64), cols.astype(np.int64), np.asarray(values)
 
 
+def cell_records(rows: np.ndarray, obs_index: list[str]) -> list[dict]:
+    records = []
+    for row in sorted(int(v) for v in np.unique(rows)):
+        if row < 0 or row >= len(obs_index):
+            raise RuntimeError(f"sparse row {row} is outside obs/index")
+        records.append({"row_index": row, "barcode": obs_index[row]})
+    return records
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("h5ad", type=Path)
@@ -82,6 +92,14 @@ def main() -> int:
 
     with h5py.File(args.h5ad, "r") as f:
         n_cells, n_tiles = [int(v) for v in f["X"].attrs["shape"]]
+        obs_index = [decode(v) for v in f["obs/index"][:]]
+        if len(obs_index) != n_cells:
+            raise RuntimeError(
+                f"obs/index has {len(obs_index)} rows but X has {n_cells} nuclei"
+            )
+        if len(set(obs_index)) != len(obs_index):
+            raise RuntimeError("obs/index nucleus barcodes are not unique within sample")
+
         names, intervals, counts = interval_layout(f["var/index"], n_tiles)
         target_col, tile_start, tile_end = tile_column(
             names, intervals, counts, args.chrom, args.position0
@@ -92,10 +110,13 @@ def main() -> int:
         rows, cols, values = csr_hits(f["X"], lo_col, hi_col)
 
         bin_summaries = []
+        target_rows = np.array([], dtype=np.int64)
         for col in range(lo_col, hi_col):
             m = cols == col
             hit_rows = rows[m]
             hit_values = values[m]
+            if col == target_col:
+                target_rows = np.unique(hit_rows)
             offset = col - target_col
             start = tile_start + offset * 500
             end = start + 500
@@ -139,6 +160,7 @@ def main() -> int:
         high_flat = chrom_offset + high_pos
         i_rows, i_cols, i_values = csr_hits(f["obsm/insertion"], low_flat, high_flat)
         genomic_positions = i_cols - chrom_offset
+        insertion_rows = np.unique(i_rows)
 
         insertion_by_position = []
         if len(genomic_positions):
@@ -158,9 +180,9 @@ def main() -> int:
             "radius_bp": args.insertion_radius,
             "start_0_based": low_pos,
             "end_0_based_exclusive": high_pos,
-            "nuclei_with_any_insertion": int(len(np.unique(i_rows))),
+            "nuclei_with_any_insertion": int(len(insertion_rows)),
             "fraction_nuclei_with_any_insertion": (
-                float(len(np.unique(i_rows)) / n_cells) if n_cells else 0.0
+                float(len(insertion_rows) / n_cells) if n_cells else 0.0
             ),
             "total_insertion_counts": int(i_values.sum()) if len(i_values) else 0,
             "positions_with_signal": int(len(np.unique(genomic_positions))),
@@ -168,6 +190,16 @@ def main() -> int:
                 len(np.unique(i_rows[genomic_positions == args.position0]))
             ),
             "by_position": insertion_by_position,
+        }
+
+        both_rows = np.intersect1d(target_rows, insertion_rows)
+        union_rows = np.union1d(target_rows, insertion_rows)
+        signal_cells = {
+            "barcode_source": "H5AD obs/index",
+            "target_tile": cell_records(target_rows, obs_index),
+            "insertion_window": cell_records(insertion_rows, obs_index),
+            "both_target_tile_and_insertion_window": cell_records(both_rows, obs_index),
+            "either_signal": cell_records(union_rows, obs_index),
         }
 
         result = {
@@ -186,10 +218,12 @@ def main() -> int:
             "target_500bp_tile": target_summary,
             "neighbor_tiles": bin_summaries,
             "raw_insertion_window": insertion_window,
+            "signal_carrying_nuclei": signal_cells,
             "interpretation_guard": (
                 "Wild-type adult male hypothalamus atlas signal is descriptive. "
                 "Presence does not establish allele dependence or enhancer-to-Irx3 causality; "
-                "absence does not exclude rare-cell or T>C-induced accessibility."
+                "absence does not exclude rare-cell or T>C-induced accessibility. "
+                "Barcode identities are preserved only for an official annotation join."
             ),
             "discovery_level_ceiling": "D1_DESCRIPTIVE",
         }
