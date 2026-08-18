@@ -1,0 +1,87 @@
+name: GAP-001 fetch whole-brain supplementary cell metadata
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - '.github/workflows/gap001-fetch-wmb-supplementary-cellmeta.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-supplementary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download official Nature Supplementary Tables 1-25
+        run: |
+          curl -fL --retry 5 --retry-delay 3 \
+            -o /tmp/wmb-supplementary.zip \
+            'https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41586-023-06824-9/MediaObjects/41586_2023_6824_MOESM3_ESM.zip'
+          test -s /tmp/wmb-supplementary.zip
+          ls -lh /tmp/wmb-supplementary.zip
+
+      - name: Inventory metadata-like files
+        run: |
+          unzip -Z1 /tmp/wmb-supplementary.zip > /tmp/all-files.txt
+          echo '--- archive file count ---'
+          wc -l /tmp/all-files.txt
+          echo '--- candidate metadata files ---'
+          grep -Ei 'supp.*(table|tab).*([345])|table.*([345])|meta|barcode|cluster|annot|legend' /tmp/all-files.txt | head -250 | tee /tmp/candidates.txt || true
+
+      - name: Extract Tables 3-5 and metadata candidates only
+        run: |
+          mkdir -p /tmp/extracted
+          python - <<'PY'
+          import re, zipfile
+          z=zipfile.ZipFile('/tmp/wmb-supplementary.zip')
+          pat=re.compile(r'(supp.*(?:table|tab).*?[345](?:\D|$)|table.*?[345](?:\D|$)|meta|barcode|cluster|annot|legend)', re.I)
+          selected=[n for n in z.namelist() if pat.search(n)]
+          print('selected',len(selected))
+          for n in selected:
+              print(n)
+              try:
+                  z.extract(n,'/tmp/extracted')
+              except Exception as e:
+                  print('EXTRACT_FAIL',n,e)
+          PY
+          find /tmp/extracted -type f -printf '%p\t%k KB\n' | head -250
+
+      - name: Preview text and spreadsheet structures
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import csv, gzip, json, zipfile
+          root=Path('/tmp/extracted')
+          for p in sorted(root.rglob('*')):
+              if not p.is_file():
+                  continue
+              print('\n===',p.relative_to(root),'===')
+              name=p.name.lower()
+              try:
+                  if name.endswith(('.tsv','.csv','.txt')):
+                      with p.open('r',encoding='utf-8',errors='replace') as f:
+                          for _,line in zip(range(8),f): print(line.rstrip()[:1000])
+                  elif name.endswith('.gz'):
+                      with gzip.open(p,'rt',encoding='utf-8',errors='replace') as f:
+                          for _,line in zip(range(8),f): print(line.rstrip()[:1000])
+                  elif name.endswith(('.xlsx','.xlsm')):
+                      with zipfile.ZipFile(p) as x:
+                          members=x.namelist()
+                          print('xlsx members',members[:30])
+              except Exception as e:
+                  print('PREVIEW_FAIL',e)
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WMB-supplementary-cellmeta-candidates
+          path: |
+            /tmp/all-files.txt
+            /tmp/candidates.txt
+            /tmp/extracted
+          if-no-files-found: error
