@@ -5,6 +5,15 @@
   "updated": "2026-08-18",
   "target": "rs1421085 T>C -> M_adult_male_PH -> Irx3 up",
   "claim_scope": "public-data discovery planning; dataset presence is not causal evidence",
+  "exact_mouse_ortholog": {
+    "assembly": "mm10",
+    "coordinate_1_based": "chr8:91374372",
+    "coordinate_0_based": "chr8:91374371",
+    "reference": "T",
+    "alternate": "C",
+    "mapping_status": "PASS_EXACT_UNIQUE_SEQUENCE_MATCH",
+    "evidence_ref": "discovery/CDNA-001-rs1421085-mouse-ortholog.json"
+  },
   "datasets": [
     {
       "accession": "GSE146692",
@@ -37,7 +46,7 @@
       "sex": ["male"],
       "strength": "adult cell-type-resolved chromatin atlas; ~2.3 million cells and ~1 million cCREs",
       "limitation": "no rs1421085 genotype contrast; accessibility can nominate but not prove mediation",
-      "discovery_query": "test accessibility of the exact mapped rs1421085 orthologous element across hypothalamic cell populations"
+      "discovery_query": "test accessibility of mm10 chr8:91374372 exact orthologous element across hypothalamic cell populations"
     },
     {
       "accession": "GSE226277",
@@ -49,7 +58,7 @@
       "context": "diabetes with acute or recurrent hypoglycemia",
       "strength": "RNA and accessibility measured in matched hypothalamic nuclei",
       "limitation": "metabolic-stress context and no rs1421085 genotype contrast",
-      "discovery_query": "ask whether Irx3-expressing cell states carry accessibility at the mapped Fto-intron element"
+      "discovery_query": "ask whether Irx3-expressing cell states carry accessibility at mm10 chr8:91374372"
     },
     {
       "accession": "GSE288514",
@@ -67,12 +76,13 @@
   "gates": [
     {
       "id": "GATE-COORDINATE",
-      "status": "RUNNING",
-      "requirement": "exact mouse ortholog coordinate on current assembly from published sequence"
+      "status": "PASS",
+      "requirement": "exact mouse ortholog coordinate on current assembly from published sequence",
+      "result": "mm10 chr8:91374372 T>C; unique exact published-guide match"
     },
     {
       "id": "GATE-ACCESSIBILITY",
-      "status": "BLOCKED_BY_COORDINATE",
+      "status": "RUNNING",
       "requirement": "cell-resolved accessibility at exact orthologous element"
     },
     {
