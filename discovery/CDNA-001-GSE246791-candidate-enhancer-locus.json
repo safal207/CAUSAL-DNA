@@ -1,0 +1,36 @@
+{
+  "case_id": "CDNA-001",
+  "gap_id": "GAP-001",
+  "dataset": "GSE246791",
+  "analysis": "candidate-enhancer and positive-PDC archive locus scan",
+  "assembly": "mm10",
+  "query": {
+    "chrom": "chr8",
+    "position_0_based": 91374371,
+    "position_1_based": 91374372,
+    "variant": "mouse ortholog of human rs1421085 T>C"
+  },
+  "result": {
+    "archive_members_scanned": 3,
+    "chr8_intervals_parsed": 79932,
+    "candidate_enhancer_chr8_intervals": 14232,
+    "positive_pdc_chr8_endpoints": 65700,
+    "exact_locus_overlap_count": 0,
+    "nearest_candidate_enhancer": {
+      "start_0_based": 91378734,
+      "end_0_based_exclusive": 91379233,
+      "distance_bp": 4363
+    }
+  },
+  "discovery_status": "D1_NEGATIVE_CATALOG_SIGNAL",
+  "interpretation": "The exact orthologous base is not contained in the published GSE246791 union candidate-enhancer catalog or the scanned positive-PDC endpoints. This demotes only the simple model that the exact element is a strong constitutive adult-brain cCRE under the catalog's calling thresholds.",
+  "interpretation_guard": "This is not evidence of zero raw chromatin accessibility. The catalog is thresholded and not genotype-specific; rare-cell, subthreshold, state-dependent, or allele-induced accessibility remains possible.",
+  "next_test": "Inspect raw fragments or the 500-bp bin matrix in the eight registered hypothalamus samples (6H, 7J, 8K, 9L; two replicates each).",
+  "provenance": [
+    "GitHub Actions run 32108504455",
+    "artifact 9314000863",
+    "GSE246791_wmb_enhancer.tar.gz",
+    "analysis/gap001_scan_gse246791_enhancers.py"
+  ],
+  "cause_found": false
+}
