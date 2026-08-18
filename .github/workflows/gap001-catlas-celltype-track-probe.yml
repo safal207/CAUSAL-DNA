@@ -1,0 +1,61 @@
+name: GAP-001 CATlas cell-type track probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - '.github/workflows/gap001-catlas-celltype-track-probe.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/gap001-catlas-celltype-track-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch official CATlas cell-type registry
+        run: |
+          curl -fL --retry 3 -o /tmp/igv_tracks.tmp https://catlas.org/wholemousebrain/data/igv_tracks.tmp
+          test -s /tmp/igv_tracks.tmp
+          grep -E 'PH_|PH-|VMH_|DMH|PVH|Tanycyte|Astro-NT|ARH|LHA' /tmp/igv_tracks.tmp | head -120
+
+      - name: Probe candidate bigWig URL conventions
+        run: |
+          python - <<'PY'
+          import subprocess
+          cells=['PH-ant_Otp_Glut','PH_Pitx2_Glut','PH-SUM_Foxa1_Glut','VMH_Fezf1_Glut','VMH_Nr5a1_Glut','DMH-LHA_Vgll2_Glut','PVHd-DMH_Lhx6_Gaba','Tanycyte_NN']
+          patterns=[
+            'https://catlas.org/wholemousebrain/data/bw/{cell}.bw',
+            'https://catlas.org/wholemousebrain/data/bigwig/{cell}.bw',
+            'https://catlas.org/wholemousebrain/data/igv/{cell}.bw',
+            'https://catlas.org/wholemousebrain/data/track/{cell}.bw',
+          ]
+          found=[]
+          for cell in cells:
+              for pattern in patterns:
+                  url=pattern.format(cell=cell)
+                  p=subprocess.run(['curl','-L','-sS','-o','/dev/null','-w','%{http_code}', '--max-time','20', url],capture_output=True,text=True)
+                  code=p.stdout.strip()
+                  print(code,url)
+                  if code in {'200','206'}:
+                      found.append((cell,url))
+                      break
+          open('/tmp/found.txt','w').write('\n'.join(f'{c}\t{u}' for c,u in found)+'\n')
+          print('FOUND',len(found))
+          PY
+          cat /tmp/found.txt || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CATlas-celltype-track-probe
+          path: |
+            /tmp/igv_tracks.tmp
+            /tmp/found.txt
+          if-no-files-found: error
