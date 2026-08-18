@@ -6,6 +6,7 @@
   "distance_metric": "weighted_linf",
   "decision_rule": "minimax_interval_regret",
   "binary_tolerance": 0.002,
+  "fraction_grid": [0.0, 0.5, 1.0],
   "axes": [
     {
       "axis_id": "TF_FAMILY_COST_DOWN",
