@@ -1,0 +1,92 @@
+{
+  "case_id": "CDNA-001",
+  "gap_id": "GAP-001",
+  "dataset": "GSE246791",
+  "assembly": "mm10",
+  "analysis": "raw 500-bp tile plus exact-locus +/-250 bp Tn5 insertion accessibility across all adult male hypothalamus dissections",
+  "query": {
+    "chrom": "chr8",
+    "position_0_based": 91374371,
+    "position_1_based": 91374372,
+    "variant": "mouse ortholog of human rs1421085 T>C",
+    "target_tile": "chr8:91374000-91374500",
+    "insertion_radius_bp": 250
+  },
+  "cohort": {
+    "sample_count": 8,
+    "regions": ["6H", "7J", "8K", "9L"],
+    "replicates_per_region": 2,
+    "sex": "male",
+    "age": "8 weeks",
+    "atlas_scope": "adult whole-brain snATAC; hypothalamus dissections only"
+  },
+  "result": {
+    "samples_with_target_tile_signal": 8,
+    "samples_with_insertion_window_signal": 8,
+    "all_regions_replicated": true,
+    "regions": [
+      {
+        "region": "6H",
+        "replicate_count": 2,
+        "target_tile_fraction_range": [0.0016015073009891664, 0.0021197668256491787],
+        "insertion_window_fraction_range": [0.001413094677343382, 0.0023317435082140965]
+      },
+      {
+        "region": "7J",
+        "replicate_count": 2,
+        "target_tile_fraction_range": [0.0015758888998325619, 0.0018614676202606054],
+        "insertion_window_fraction_range": [0.0013789027873534916, 0.0016655236602331734]
+      },
+      {
+        "region": "8K",
+        "replicate_count": 2,
+        "target_tile_fraction_range": [0.0012579833559125217, 0.0020096830181784964],
+        "insertion_window_fraction_range": [0.0013547513063673312, 0.0015529368776833836]
+      },
+      {
+        "region": "9L",
+        "replicate_count": 2,
+        "target_tile_fraction_range": [0.002036067481093659, 0.002297631671968894],
+        "insertion_window_fraction_range": [0.0018421562924180726, 0.0021208907741251328]
+      }
+    ],
+    "samples": [
+      {"region": "9L", "geo_accession": "GSM7876880", "nuclei": 11316, "target_tile_nuclei": 26, "target_tile_fraction": 0.002297631671968894, "insertion_window_nuclei": 24, "insertion_window_fraction": 0.0021208907741251328, "target_over_local_21bin_median": 0.8387096774193549},
+      {"region": "9L", "geo_accession": "GSM7876882", "nuclei": 10314, "target_tile_nuclei": 21, "target_tile_fraction": 0.002036067481093659, "insertion_window_nuclei": 19, "insertion_window_fraction": 0.0018421562924180726, "target_over_local_21bin_median": 0.7000000000000001},
+      {"region": "7J", "geo_accession": "GSM7877102", "nuclei": 10207, "target_tile_nuclei": 19, "target_tile_fraction": 0.0018614676202606054, "insertion_window_nuclei": 17, "insertion_window_fraction": 0.0016655236602331734, "target_over_local_21bin_median": 1.1874999999999998},
+      {"region": "7J", "geo_accession": "GSM7877103", "nuclei": 10153, "target_tile_nuclei": 16, "target_tile_fraction": 0.0015758888998325619, "insertion_window_nuclei": 14, "insertion_window_fraction": 0.0013789027873534916, "target_over_local_21bin_median": 1.0},
+      {"region": "6H", "geo_accession": "GSM7877104", "nuclei": 10615, "target_tile_nuclei": 17, "target_tile_fraction": 0.0016015073009891664, "insertion_window_nuclei": 15, "insertion_window_fraction": 0.001413094677343382, "target_over_local_21bin_median": 1.0625},
+      {"region": "6H", "geo_accession": "GSM7877105", "nuclei": 9435, "target_tile_nuclei": 20, "target_tile_fraction": 0.0021197668256491787, "insertion_window_nuclei": 22, "insertion_window_fraction": 0.0023317435082140965, "target_over_local_21bin_median": 1.5384615384615385},
+      {"region": "8K", "geo_accession": "GSM7877106", "nuclei": 10947, "target_tile_nuclei": 22, "target_tile_fraction": 0.0020096830181784964, "insertion_window_nuclei": 17, "insertion_window_fraction": 0.0015529368776833836, "target_over_local_21bin_median": 1.0},
+      {"region": "8K", "geo_accession": "GSM7877107", "nuclei": 10334, "target_tile_nuclei": 13, "target_tile_fraction": 0.0012579833559125217, "insertion_window_nuclei": 14, "insertion_window_fraction": 0.0013547513063673312, "target_over_local_21bin_median": 0.6842105263157895}
+    ]
+  },
+  "catalog_context": {
+    "union_candidate_enhancer_overlap": false,
+    "nearest_candidate_enhancer_distance_bp": 4363,
+    "interpretation": "Raw accessibility is reproducibly present despite absence from the thresholded union candidate-enhancer catalog."
+  },
+  "discovery_status": "D1_REPLICATED_WITHIN_DATASET_RAW_ACCESSIBILITY",
+  "interpretation": "The exact rs1421085 orthologous element is not completely closed in wild-type adult male hypothalamus. Low-frequency raw 500-bp tile and local Tn5 insertion signal is reproducibly observed in every tested hypothalamus dissection and both biological replicates. The element is generally not an obvious local accessibility maximum, so the result does not support calling it a strong constitutive adult-hypothalamus enhancer peak.",
+  "hypothesis_effect": {
+    "H3_ACCESSIBILITY": {
+      "demoted": ["completely closed wild-type adult hypothalamus locus", "strong constitutive adult-brain cCRE at the exact base"],
+      "still_compatible": ["rare-cell accessibility", "subthreshold accessibility", "state-dependent accessibility", "T>C-induced accessibility change"]
+    }
+  },
+  "limitations": [
+    "all eight samples come from one atlas, so this is not independent-dataset D2 replication",
+    "no rs1421085 genotype contrast is present",
+    "sample-level h5ad files do not yet identify which annotated cell type carries the target-locus signal",
+    "accessibility does not establish ARID5B/CUX1 occupancy or enhancer-to-Irx3 targeting"
+  ],
+  "next_test": "Map signal-carrying nuclei to integrated subclass/cluster annotations, align them with Irx3-relevant hypothalamic cell states, then replicate locus-accessibility/state coupling in an independent hypothalamus Multiome dataset.",
+  "provenance": [
+    "GitHub Actions run 32109378429",
+    "aggregate job 95625601581",
+    "aggregate artifact 9314321285",
+    "analysis/gap001_query_h5ad_locus.py",
+    "analysis/gap001_aggregate_hypothalamus_locus.py"
+  ],
+  "cause_found": false
+}
