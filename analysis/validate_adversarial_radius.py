@@ -50,17 +50,36 @@ def main() -> int:
         f"- baseline: winner={result.baseline_winner_action_id}, "
         f"regret_margin={result.baseline_regret_margin:.6f}"
     )
+    print(f"- normalized fractional rays tested: {result.fractional_rays_tested}")
+
+    if result.minimum_ray_switch_found:
+        fractions = ", ".join(
+            f"{axis_id}={fraction:.2f}"
+            for axis_id, fraction in result.minimum_ray_fractions or ()
+        )
+        print(
+            f"- minimum ray radius: {result.minimum_ray_radius:.6f} "
+            f"-> {result.minimum_ray_winner_after_boundary}, "
+            f"target_regret_gap={result.minimum_ray_target_regret_gap_after_boundary:.6f}"
+        )
+        print(f"- minimum ray fractions: {fractions}")
+        print("- minimum ray boundary settings:")
+        for experiment_id, cost, reliability in result.minimum_ray_settings or ():
+            print(f"  {experiment_id}: cost={cost:.6f}x, reliability={reliability:.6f}")
+    else:
+        print("- minimum ray radius: no switch within declared ray limits")
+
     if result.coordinated_switch_found:
         print(
-            f"- coordinated radius: {result.coordinated_radius:.6f} "
+            f"- all-axis coordinated radius: {result.coordinated_radius:.6f} "
             f"-> {result.coordinated_winner_after_boundary}, "
-            f"margin={result.coordinated_regret_margin_after_boundary:.6f}"
+            f"target_regret_gap={result.coordinated_target_regret_gap_after_boundary:.6f}"
         )
-        print("- coordinated boundary settings:")
+        print("- all-axis coordinated boundary settings:")
         for experiment_id, cost, reliability in result.coordinated_settings or ():
             print(f"  {experiment_id}: cost={cost:.6f}x, reliability={reliability:.6f}")
     else:
-        print("- coordinated radius: not found within declared limits")
+        print("- all-axis coordinated radius: not found within declared limits")
 
     print("- single-axis thresholds:")
     for threshold in result.axis_thresholds:
@@ -69,7 +88,7 @@ def main() -> int:
                 f"  {threshold.axis_id}: d={threshold.normalized_distance:.6f}, "
                 f"boundary_value={threshold.boundary_value:.6f}, "
                 f"winner={threshold.winner_after_boundary}, "
-                f"margin={threshold.regret_margin_after_boundary:.6f}"
+                f"target_regret_gap={threshold.target_regret_gap_after_boundary:.6f}"
             )
         else:
             print(f"  {threshold.axis_id}: no switch within declared limit")
