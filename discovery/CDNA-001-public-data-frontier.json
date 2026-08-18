@@ -1,0 +1,95 @@
+{
+  "case_id": "CDNA-001",
+  "gap_id": "GAP-001",
+  "sprint_id": "DISCOVERY-SPRINT-001",
+  "updated": "2026-08-18",
+  "target": "rs1421085 T>C -> M_adult_male_PH -> Irx3 up",
+  "claim_scope": "public-data discovery planning; dataset presence is not causal evidence",
+  "datasets": [
+    {
+      "accession": "GSE146692",
+      "modality": ["scRNA-seq"],
+      "species": "Mus musculus",
+      "region": "ventral posterior hypothalamus",
+      "age": "P30-35",
+      "sex": ["male", "female"],
+      "strength": "direct posterior-hypothalamus cell-context resource",
+      "limitation": "no rs1421085 genotype contrast; transcript presence is not occupancy",
+      "discovery_query": "localize Irx3-positive populations and reproducible sex/cell-state structure"
+    },
+    {
+      "accession": "GSE208355",
+      "modality": ["integrated sc/snRNA-seq atlas"],
+      "species": "Mus musculus",
+      "region": "hypothalamus",
+      "age": "mixed source atlas",
+      "sex": ["mixed"],
+      "strength": "large independent HypoMap reference with 384925 cells",
+      "limitation": "integrated atlas; anatomical and experimental context must be retained",
+      "discovery_query": "replicate Irx3 cell-class localization independently of GSE146692"
+    },
+    {
+      "accession": "GSE246791",
+      "modality": ["snATAC-seq"],
+      "species": "Mus musculus",
+      "region": "117 adult brain anatomical dissections including hypothalamus",
+      "age": "8 weeks",
+      "sex": ["male"],
+      "strength": "adult cell-type-resolved chromatin atlas; ~2.3 million cells and ~1 million cCREs",
+      "limitation": "no rs1421085 genotype contrast; accessibility can nominate but not prove mediation",
+      "discovery_query": "test accessibility of the exact mapped rs1421085 orthologous element across hypothalamic cell populations"
+    },
+    {
+      "accession": "GSE226277",
+      "modality": ["single-nucleus RNA", "single-nucleus ATAC", "10x Multiome"],
+      "species": "Mus musculus",
+      "region": "hypothalamus",
+      "age": "adult",
+      "sex": ["not yet normalized in registry"],
+      "context": "diabetes with acute or recurrent hypoglycemia",
+      "strength": "RNA and accessibility measured in matched hypothalamic nuclei",
+      "limitation": "metabolic-stress context and no rs1421085 genotype contrast",
+      "discovery_query": "ask whether Irx3-expressing cell states carry accessibility at the mapped Fto-intron element"
+    },
+    {
+      "accession": "GSE288514",
+      "modality": ["single-nucleus RNA", "single-nucleus ATAC", "10x Multiome"],
+      "species": "Mus musculus",
+      "region": "hypothalamus",
+      "age": "adult",
+      "sex": ["male"],
+      "context": "12-week diet-induced obesity with incretin perturbations",
+      "strength": "metabolically relevant male hypothalamus multiome replication lane",
+      "limitation": "treatment context; processed supplementary files are not provided on the GEO sample pages reviewed",
+      "discovery_query": "replicate locus-accessibility/Irx3-state coupling under obesogenic context"
+    }
+  ],
+  "gates": [
+    {
+      "id": "GATE-COORDINATE",
+      "status": "RUNNING",
+      "requirement": "exact mouse ortholog coordinate on current assembly from published sequence"
+    },
+    {
+      "id": "GATE-ACCESSIBILITY",
+      "status": "BLOCKED_BY_COORDINATE",
+      "requirement": "cell-resolved accessibility at exact orthologous element"
+    },
+    {
+      "id": "GATE-CELL-ALIGNMENT",
+      "status": "OPEN",
+      "requirement": "align accessible cell class to reproducible Irx3-positive posterior-hypothalamic population"
+    },
+    {
+      "id": "GATE-INTERPRETER",
+      "status": "OPEN",
+      "requirement": "ARID5B/CUX1 or alternative interpreter discriminated using occupancy-compatible evidence"
+    },
+    {
+      "id": "GATE-CONTACT",
+      "status": "OPEN",
+      "requirement": "adult cell-context enhancer-to-Irx3 contact support or explicit unresolved result"
+    }
+  ],
+  "cause_found": false
+}
