@@ -1,0 +1,29 @@
+{
+  "alternate_on_assembly_strand": "C",
+  "anchor_orientation": "reverse_complement_of_published_guide",
+  "anchor_start_0_based": 91374362,
+  "chrom": "chr8",
+  "claim_scope": "coordinate mapping only; not biological evidence",
+  "fosmid_crosscheck": {
+    "distance_to_lifted_fosmid_bp": 13270,
+    "exact_site_inside_lifted_fosmid": false,
+    "lifted_fosmid_chrom": "chr8",
+    "lifted_fosmid_interval_0_based_half_open": [91387641, 91427024],
+    "same_chromosome": true
+  },
+  "genome": "mm10",
+  "human_variant": "rs1421085 T>C",
+  "matched_sequence": "AAGGCATCGTATTGATTA",
+  "position_0_based": 91374371,
+  "position_1_based": 91374372,
+  "provenance": [
+    "Laber et al. Science Advances 2021 PMID:34290091",
+    "published guide: TAATCAATACGATGCCTT; PAM AGG",
+    "published rs1421085-enhancer fosmid: mm9 chr8:93911541-93950923",
+    "UCSC mm10 chromosome FASTA",
+    "GitHub Actions run 32108096965; artifact 9313866523"
+  ],
+  "published_wt_guide": "TAATCAATACGATGCCTT",
+  "reference_on_assembly_strand": "T",
+  "mapping_status": "PASS_EXACT_UNIQUE_SEQUENCE_MATCH"
+}
