@@ -1,0 +1,61 @@
+name: GAP-001 GSE246791 locus accessibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_scan_gse246791_enhancers.py'
+      - '.github/workflows/gap001-gse246791-locus-accessibility.yml'
+      - 'discovery/CDNA-001-rs1421085-mouse-ortholog.json'
+  pull_request:
+    paths:
+      - 'analysis/gap001_scan_gse246791_enhancers.py'
+      - '.github/workflows/gap001-gse246791-locus-accessibility.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  scan-locus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download compact GSE246791 enhancer/cCRE archive
+        run: |
+          curl -fL --retry 3 --retry-delay 2 \
+            -o /tmp/GSE246791_wmb_enhancer.tar.gz \
+            https://ftp.ncbi.nlm.nih.gov/geo/series/GSE246nnn/GSE246791/suppl/GSE246791_wmb_enhancer.tar.gz
+          test -s /tmp/GSE246791_wmb_enhancer.tar.gz
+          ls -lh /tmp/GSE246791_wmb_enhancer.tar.gz
+          tar -tzf /tmp/GSE246791_wmb_enhancer.tar.gz | head -40 || true
+
+      - name: Scan exact mouse rs1421085 ortholog
+        run: |
+          python analysis/gap001_scan_gse246791_enhancers.py \
+            --archive /tmp/GSE246791_wmb_enhancer.tar.gz \
+            --chrom chr8 \
+            --position0 91374371 \
+            --nearest-k 30 \
+            --output /tmp/CDNA-001-GSE246791-locus-accessibility.json
+          python - <<'PY'
+          import json
+          p = json.load(open('/tmp/CDNA-001-GSE246791-locus-accessibility.json'))
+          print('members=', p['archive_members_scanned'])
+          print('chr8_intervals=', p['chromosome_intervals_parsed'])
+          print('overlap_count=', p['overlap_count'])
+          for hit in p['overlaps'][:50]:
+              print('OVERLAP', hit['member'], hit['start_0_based'], hit['end_0_based_exclusive'], hit['raw_record'])
+          if not p['overlaps']:
+              for hit in p['nearest_intervals'][:15]:
+                  print('NEAREST', hit['distance_bp'], hit['member'], hit['start_0_based'], hit['end_0_based_exclusive'])
+          PY
+
+      - name: Upload locus scan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CDNA-001-GSE246791-locus-accessibility
+          path: /tmp/CDNA-001-GSE246791-locus-accessibility.json
+          if-no-files-found: error
