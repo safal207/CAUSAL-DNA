@@ -8,8 +8,9 @@ confidence.
 
 Because minimax interval regret need not worsen monotonically when every
 "adverse" coordinate is moved together, the analyzer searches a declared
-family of normalized rays instead of treating the all-axis corner as globally
-worst by assumption.
+family of normalized rays. Each ray is scanned for its *first* observed switch
+before a local binary refinement, so a later return to the baseline winner does
+not erase an earlier decision boundary.
 """
 from __future__ import annotations
 
@@ -41,6 +42,7 @@ class AdversarialRadiusResult:
     target_action_id: str
     baseline_winner_action_id: str
     baseline_regret_margin: float
+    scan_step: float
     coordinated_switch_found: bool
     coordinated_radius: float | None
     coordinated_winner_after_boundary: str | None
@@ -140,6 +142,13 @@ class AdversarialRadiusAnalyzer:
         tolerance = self.config.get("binary_tolerance")
         if not isinstance(tolerance, (int, float)) or not (0 < tolerance <= 0.05):
             raise AdversarialRadiusError("binary_tolerance must be in (0, 0.05]")
+        scan_step = self.config.get("coarse_scan_step")
+        if not isinstance(scan_step, (int, float)) or not (0 < scan_step <= 0.25):
+            raise AdversarialRadiusError("coarse_scan_step must be in (0, 0.25]")
+        if scan_step < tolerance:
+            raise AdversarialRadiusError(
+                "coarse_scan_step must be >= binary_tolerance"
+            )
 
         fractions = self.config.get("fraction_grid")
         if (
@@ -228,14 +237,31 @@ class AdversarialRadiusAnalyzer:
     def _first_switch_profile(
         self,
         fractions: dict[str, float],
+        *,
+        search_ceiling: float | None = None,
     ) -> tuple[bool, float | None, JointCell | None]:
         max_radius = self._profile_max_radius(fractions)
-        at_limit = self._cell_at_profile(max_radius, fractions)
-        if at_limit.winner_action_id == self.target_action_id:
+        if search_ceiling is not None:
+            max_radius = min(max_radius, float(search_ceiling))
+        if max_radius <= 0:
             return False, None, None
 
-        low = 0.0
-        high = max_radius
+        step = float(self.config["coarse_scan_step"])
+        previous_radius = 0.0
+        current_radius = min(step, max_radius)
+        first_non_target: JointCell | None = None
+        while True:
+            current = self._cell_at_profile(current_radius, fractions)
+            if current.winner_action_id != self.target_action_id:
+                first_non_target = current
+                break
+            if current_radius >= max_radius - 1e-12:
+                return False, None, None
+            previous_radius = current_radius
+            current_radius = min(current_radius + step, max_radius)
+
+        low = previous_radius
+        high = current_radius
         tolerance = float(self.config["binary_tolerance"])
         while high - low > tolerance:
             mid = (low + high) / 2.0
@@ -245,6 +271,9 @@ class AdversarialRadiusAnalyzer:
             else:
                 high = mid
         boundary = self._cell_at_profile(high, fractions)
+        if boundary.winner_action_id == self.target_action_id:
+            boundary = first_non_target
+            high = current_radius
         return True, high, boundary
 
     def _target_regret_gap(
@@ -299,7 +328,15 @@ class AdversarialRadiusAnalyzer:
             if max(combination) < 1.0 - 1e-12:
                 continue
             profiles.append(dict(zip(axis_ids, combination)))
-        return tuple(profiles)
+        return tuple(
+            sorted(
+                profiles,
+                key=lambda profile: (
+                    -sum(profile.values()),
+                    tuple(-profile[axis_id] for axis_id in axis_ids),
+                ),
+            )
+        )
 
     def analyze(self) -> AdversarialRadiusResult:
         baseline = self.joint._cell(self.reference)
@@ -323,20 +360,19 @@ class AdversarialRadiusAnalyzer:
 
         profiles = self._fractional_profiles()
         axis_order = tuple(axis["axis_id"] for axis in self.axes)
-        ray_candidates: list[
-            tuple[float, tuple[float, ...], dict[str, float], JointCell]
-        ] = []
+        best: tuple[float, tuple[float, ...], dict[str, float], JointCell] | None = None
         for fractions in profiles:
-            found, radius, boundary = self._first_switch_profile(fractions)
-            if found and radius is not None and boundary is not None:
-                key = tuple(fractions[axis_id] for axis_id in axis_order)
-                ray_candidates.append((radius, key, fractions, boundary))
+            ceiling = best[0] if best is not None else None
+            found, radius, boundary = self._first_switch_profile(
+                fractions, search_ceiling=ceiling
+            )
+            if not found or radius is None or boundary is None:
+                continue
+            key = tuple(fractions[axis_id] for axis_id in axis_order)
+            candidate = (radius, key, fractions, boundary)
+            if best is None or (candidate[0], candidate[1]) < (best[0], best[1]):
+                best = candidate
 
-        best = (
-            min(ray_candidates, key=lambda item: (item[0], item[1]))
-            if ray_candidates
-            else None
-        )
         if best is not None:
             minimum_radius, _key, minimum_fractions, minimum_boundary = best
             minimum_settings_dict = {
@@ -360,6 +396,7 @@ class AdversarialRadiusAnalyzer:
             target_action_id=self.target_action_id,
             baseline_winner_action_id=baseline.winner_action_id,
             baseline_regret_margin=baseline.regret_margin,
+            scan_step=float(self.config["coarse_scan_step"]),
             coordinated_switch_found=coordinated_found,
             coordinated_radius=coordinated_radius,
             coordinated_winner_after_boundary=(
