@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 
@@ -12,6 +13,9 @@ SPEC = importlib.util.spec_from_file_location(
 )
 MOD = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
+# dataclasses resolves postponed annotations through sys.modules on Python 3.12.
+# Register the dynamically loaded analysis module before executing it.
+sys.modules[SPEC.name] = MOD
 SPEC.loader.exec_module(MOD)
 
 
