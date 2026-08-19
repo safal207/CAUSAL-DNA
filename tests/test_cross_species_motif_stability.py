@@ -1,8 +1,6 @@
-import csv
 import importlib.util
 from pathlib import Path
 import sys
-import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,7 +14,7 @@ sys.modules[SPEC.name] = MOD
 SPEC.loader.exec_module(MOD)
 
 
-def row(tf, rid, delta, max_site=0.8, crossing=False):
+def row(tf, rid, delta, max_site=0.8, crossing=False, strand="+", offset=-2):
     return {
         "tf": tf,
         "motif_record_id": rid,
@@ -25,17 +23,30 @@ def row(tf, rid, delta, max_site=0.8, crossing=False):
         "abs_delta_normalized": str(abs(delta)),
         "max_site_strength": str(max_site),
         "threshold_075_crossing": str(crossing),
+        "strand": strand,
+        "start_offset": str(offset),
     }
 
 
 class CrossSpeciesMotifStabilityTests(unittest.TestCase):
-    def test_same_record_direction_is_conserved(self):
+    def test_same_record_same_placement_is_strictly_portable(self):
         human = [row("CXXC4", "CXXC4__rep1", 0.30)]
         mouse = [row("CXXC4", "CXXC4__rep1", 0.21)]
         rows, summary = MOD.compare_species(human, mouse, 0.10)
         self.assertTrue(rows[0]["direction_conserved"])
+        self.assertTrue(rows[0]["placement_conserved"])
         self.assertTrue(rows[0]["robust_cross_species_delta"])
-        self.assertEqual(summary["robust_cross_species_tfs"], 1)
+        self.assertTrue(rows[0]["strict_grammar_portability"])
+        self.assertEqual(summary["strict_grammar_portable_tfs"], 1)
+
+    def test_reoriented_best_placement_is_not_strict_portable(self):
+        human = [row("CXXC4", "CXXC4__rep1", 0.30, strand="-", offset=-3)]
+        mouse = [row("CXXC4", "CXXC4__rep1", 0.30, strand="+", offset=-2)]
+        rows, summary = MOD.compare_species(human, mouse, 0.10)
+        self.assertTrue(rows[0]["robust_cross_species_delta"])
+        self.assertFalse(rows[0]["placement_conserved"])
+        self.assertFalse(rows[0]["strict_grammar_portability"])
+        self.assertEqual(summary["strict_grammar_portable_tfs"], 0)
 
     def test_reversal_demotes_candidate(self):
         human = [row("TFX", "TFX__rep1", 0.30)]
@@ -43,6 +54,7 @@ class CrossSpeciesMotifStabilityTests(unittest.TestCase):
         rows, _ = MOD.compare_species(human, mouse, 0.10)
         self.assertFalse(rows[0]["direction_conserved"])
         self.assertFalse(rows[0]["robust_cross_species_delta"])
+        self.assertFalse(rows[0]["strict_grammar_portability"])
 
     def test_human_representative_is_frozen_before_mouse_evaluation(self):
         human = [
@@ -57,29 +69,43 @@ class CrossSpeciesMotifStabilityTests(unittest.TestCase):
         self.assertEqual(rows[0]["motif_record_id"], "TFX__rep1")
         self.assertFalse(rows[0]["robust_cross_species_delta"])
 
+    def test_site_strength_is_reported_not_thresholded(self):
+        human = [row("TFX", "TFX__rep1", 0.20, max_site=0.80)]
+        mouse = [row("TFX", "TFX__rep1", 0.20, max_site=0.20)]
+        rows, _ = MOD.compare_species(human, mouse, 0.10)
+        self.assertTrue(rows[0]["strict_grammar_portability"])
+        self.assertAlmostEqual(rows[0]["min_site_strength"], 0.20)
+        self.assertAlmostEqual(rows[0]["mouse_to_human_site_ratio"], 0.25)
+
     def test_record_sets_must_match(self):
-        human = [row("TFX", "TFX__rep1", 0.2)]
-        mouse = [row("TFX", "TFX__rep2", 0.2)]
         with self.assertRaises(ValueError):
-            MOD.compare_species(human, mouse, 0.10)
+            MOD.compare_species(
+                [row("TFX", "TFX__rep1", 0.2)],
+                [row("TFX", "TFX__rep2", 0.2)],
+                0.10,
+            )
 
     def test_tf_identity_must_match_for_same_record(self):
-        human = [row("TFX", "shared", 0.2)]
-        mouse = [row("TFY", "shared", 0.2)]
         with self.assertRaises(ValueError):
-            MOD.compare_species(human, mouse, 0.10)
+            MOD.compare_species(
+                [row("TFX", "shared", 0.2)],
+                [row("TFY", "shared", 0.2)],
+                0.10,
+            )
 
-    def test_crossing_requires_direction_conservation(self):
-        human = [row("TFX", "TFX__rep1", 0.2, crossing=True)]
-        mouse = [row("TFX", "TFX__rep1", -0.2, crossing=True)]
+    def test_crossing_requires_strict_placement(self):
+        human = [row("TFX", "TFX__rep1", 0.2, crossing=True, strand="-", offset=-3)]
+        mouse = [row("TFX", "TFX__rep1", 0.2, crossing=True, strand="+", offset=-2)]
         rows, summary = MOD.compare_species(human, mouse, 0.10)
         self.assertFalse(rows[0]["crossing_conserved"])
         self.assertEqual(summary["conserved_crossing_tfs"], 0)
 
     def test_outputs_do_not_claim_causality(self):
-        human = [row("TFX", "TFX__rep1", 0.2)]
-        mouse = [row("TFX", "TFX__rep1", 0.2)]
-        rows, summary = MOD.compare_species(human, mouse, 0.10)
+        rows, summary = MOD.compare_species(
+            [row("TFX", "TFX__rep1", 0.2)],
+            [row("TFX", "TFX__rep1", 0.2)],
+            0.10,
+        )
         forbidden = {"cause_found", "causal_status", "materialized", "verified"}
         self.assertFalse(forbidden & set(summary))
         self.assertFalse(forbidden & set(rows[0]))
