@@ -3,21 +3,23 @@
 
 Nature's article page may be reduced for automated clients and Springer exposes
 multiple ZIP media objects for the exact DOI. Filename/member heuristics are
-not sufficient provenance. This selector therefore evaluates every exact-DOI
-motif-like ZIP with the *same motif parser* used by the downstream normalizer
-and accepts a source only when exactly one candidate yields the declared number
-of unique TFs with no conflicting duplicate representatives.
+not sufficient provenance. This selector evaluates exact-DOI motif-like ZIPs
+with the same parser used by the downstream normalizer and accepts a source
+only when exactly one candidate covers the declared number of *unique TFs*.
 
-For CDNA-001 the declared contract is 1,421 unique human TF motifs. Passing
-this gate identifies the source archive; it is not biological evidence and does
-not establish TF occupancy or causality.
+Supplementary Data 1 can contain multiple distinct published motif
+representatives for one TF. Those are not conflicts: all representatives are
+preserved downstream and scanned independently. The atlas contract is therefore
+1,421 unique TFs plus >=1 parsed motif record per TF, not one-TF/one-PWM.
+
+Passing this gate identifies a source archive; it is not biological evidence
+and does not establish TF occupancy or causality.
 """
 from __future__ import annotations
 
 import argparse
 import io
 import json
-from pathlib import Path
 import zipfile
 
 import gap001_fetch_codebook_atlas as fetcher
@@ -25,15 +27,13 @@ import gap001_prepare_codebook_atlas as prepare
 
 
 def _text_head(data: bytes, limit: int = 500) -> str:
-    """Small diagnostic preview only; never used to select a source."""
     return data[:limit].decode("utf-8", errors="replace").replace("\x00", "\\0")
 
 
 def inspect_archive(data: bytes, expected_tfs: int) -> dict[str, object]:
-    """Apply the downstream one-TF/one-PWM parsing contract without writing files."""
-    parsed: dict[str, tuple[list[list[float]], str]] = {}
-    duplicate_count = 0
-    conflicting_duplicate_count = 0
+    """Apply downstream parsing semantics without writing normalized files."""
+    by_tf: dict[str, int] = {}
+    motif_record_count = 0
     source_member_count = 0
     unparsed_member_count = 0
     unparsed_examples: list[dict[str, object]] = []
@@ -57,25 +57,24 @@ def inspect_archive(data: bytes, expected_tfs: int) -> dict[str, object]:
             for tf, rows in motifs:
                 if len(rows) < 2 or any(len(row) != 4 for row in rows):
                     continue
-                if tf in parsed:
-                    duplicate_count += 1
-                    if prepare.matrix_signature(parsed[tf][0]) != prepare.matrix_signature(rows):
-                        conflicting_duplicate_count += 1
-                else:
-                    parsed[tf] = (rows, info.filename)
+                motif_record_count += 1
+                by_tf[tf] = by_tf.get(tf, 0) + 1
 
-    parsed_unique_tfs = len(parsed)
+    parsed_unique_tfs = len(by_tf)
+    multiple = {tf: count for tf, count in by_tf.items() if count > 1}
     return {
         "expected_unique_tfs": expected_tfs,
         "parsed_unique_tfs": parsed_unique_tfs,
+        "parsed_motif_records": motif_record_count,
         "source_member_count": source_member_count,
         "unparsed_member_count": unparsed_member_count,
         "unparsed_examples": unparsed_examples,
-        "duplicate_count": duplicate_count,
-        "conflicting_duplicate_count": conflicting_duplicate_count,
+        "multiple_representative_tf_count": len(multiple),
+        "max_representatives_per_tf": max(by_tf.values(), default=0),
         "full_atlas_contract_pass": (
-            parsed_unique_tfs == expected_tfs and conflicting_duplicate_count == 0
+            parsed_unique_tfs == expected_tfs and motif_record_count >= parsed_unique_tfs
         ),
+        "contract_semantics": "unique TF coverage; multiple published motif representatives are preserved",
     }
 
 
@@ -84,7 +83,6 @@ def candidate_summary(candidate: dict[str, object]) -> dict[str, object]:
 
 
 def select_by_contract(candidates: list[dict[str, object]], expected_tfs: int) -> dict[str, object]:
-    """Select exactly one motif-like candidate that satisfies the full atlas contract."""
     evaluated: list[dict[str, object]] = []
     for candidate in candidates:
         if not candidate.get("looks_motif_like", False):
@@ -95,20 +93,18 @@ def select_by_contract(candidates: list[dict[str, object]], expected_tfs: int) -
             }
             evaluated.append(candidate)
             continue
-        contract = inspect_archive(bytes(candidate["data"]), expected_tfs)
-        candidate["atlas_contract"] = contract
+        candidate["atlas_contract"] = inspect_archive(bytes(candidate["data"]), expected_tfs)
         evaluated.append(candidate)
 
     passing = [
-        candidate
-        for candidate in evaluated
+        candidate for candidate in evaluated
         if bool(candidate.get("atlas_contract", {}).get("full_atlas_contract_pass"))
     ]
     if len(passing) != 1:
         inventory = [candidate_summary(x) for x in evaluated]
         raise RuntimeError(
             "full-atlas source selection requires exactly one exact-DOI candidate "
-            f"to satisfy the {expected_tfs}-TF parser contract; passing={len(passing)} "
+            f"to satisfy the {expected_tfs}-unique-TF parser contract; passing={len(passing)} "
             f"inventory={json.dumps(inventory, sort_keys=True)}"
         )
     return passing[0]
@@ -120,9 +116,13 @@ def main() -> int:
     parser.add_argument("--doi", default=fetcher.DEFAULT_DOI)
     parser.add_argument("--expected-tfs", type=int, default=1421)
     parser.add_argument("--springer-probe-max", type=int, default=40)
-    parser.add_argument("--output-zip", type=Path, required=True)
-    parser.add_argument("--provenance-json", type=Path, required=True)
+    parser.add_argument("--output-zip", required=True)
+    parser.add_argument("--provenance-json", required=True)
     args = parser.parse_args()
+
+    from pathlib import Path
+    output_zip = Path(args.output_zip)
+    provenance_json = Path(args.provenance_json)
 
     page_bytes, article_final = fetcher.fetch_bytes(args.article_url)
     page_text = page_bytes.decode("utf-8", errors="replace")
@@ -162,21 +162,20 @@ def main() -> int:
 
     chosen = select_by_contract(candidates, args.expected_tfs)
     archive = bytes(chosen["data"])
-    args.output_zip.parent.mkdir(parents=True, exist_ok=True)
-    args.output_zip.write_bytes(archive)
-    persisted_members = fetcher.validate_zip(args.output_zip)
+    output_zip.parent.mkdir(parents=True, exist_ok=True)
+    output_zip.write_bytes(archive)
+    persisted_members = fetcher.validate_zip(output_zip)
 
-    inventory = [candidate_summary(x) for x in candidates]
     provenance = {
         "article_requested_url": args.article_url,
         "article_final_url": article_final,
         "doi": args.doi,
         "supplement_label": "Supplementary Data 1 / full Codebook motif atlas",
-        "selection_method": "exact DOI candidates + downstream 1421-TF parser contract",
+        "selection_method": "exact DOI candidates + downstream unique-TF parser contract",
         "article_anchor_error": article_anchor_error,
         "expected_unique_tfs": args.expected_tfs,
         "candidate_count": len(candidates),
-        "candidate_inventory": inventory,
+        "candidate_inventory": [candidate_summary(x) for x in candidates],
         "selected_origin": chosen.get("origin"),
         "selected_index": chosen.get("index"),
         "selected_url": chosen.get("url"),
@@ -185,11 +184,11 @@ def main() -> int:
         "selected_size_bytes": len(archive),
         "selected_member_count": len(persisted_members),
         "selected_atlas_contract": chosen.get("atlas_contract"),
-        "downstream_guard": "normalizer independently re-runs the same 1,421 unique-TF contract",
+        "downstream_guard": "normalizer independently re-runs the same 1,421 unique-TF contract and preserves all representatives",
         "claim_scope": "source selection/provenance only; not TF occupancy or causality",
     }
-    args.provenance_json.parent.mkdir(parents=True, exist_ok=True)
-    args.provenance_json.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    provenance_json.parent.mkdir(parents=True, exist_ok=True)
+    provenance_json.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(provenance, indent=2, sort_keys=True))
     return 0
 
