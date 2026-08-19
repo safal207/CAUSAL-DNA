@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/orientation-boundary.schema.json",
+  "title": "CAUSAL-DNA Causal Orientation Boundary",
+  "type": "object",
+  "required": ["gate_id", "case_id", "gap_id", "gap_status", "boundary_found", "target_transition", "boundaries"],
+  "additionalProperties": false,
+  "properties": {
+    "gate_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "gap_id": {"type": "string", "minLength": 1},
+    "gap_status": {"type": "string", "enum": ["OPEN", "CLOSED", "BLOCKED"]},
+    "boundary_found": {"type": "boolean"},
+    "target_transition": {"type": "string", "minLength": 1},
+    "boundaries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "components", "declared_status", "evidence", "falsification_conditions"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "label": {"type": "string", "minLength": 1},
+          "components": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "declared_status": {"type": "string", "enum": ["PROJECTIVE", "TEMPORALLY_SUPPORTED", "INTERVENTION_SUPPORTED", "REVERSIBLE", "VERIFIED"]},
+          "evidence": {
+            "type": "object",
+            "required": ["temporal_precedence", "boundary_crossing_intervention", "reversal_rescue", "independent_verification"],
+            "additionalProperties": false,
+            "properties": {
+              "temporal_precedence": {"type": "array", "items": {"type": "string", "minLength": 1}},
+              "boundary_crossing_intervention": {"type": "array", "items": {"type": "string", "minLength": 1}},
+              "reversal_rescue": {"type": "array", "items": {"type": "string", "minLength": 1}},
+              "independent_verification": {"type": "array", "items": {"type": "string", "minLength": 1}}
+            }
+          },
+          "falsification_conditions": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    }
+  }
+}
