@@ -1,0 +1,59 @@
+name: GAP-001 ortholog assembly cross-check
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_assembly_crosscheck.py'
+      - '.github/workflows/gap001-ortholog-assembly-crosscheck.yml'
+  pull_request:
+    paths:
+      - 'analysis/gap001_assembly_crosscheck.py'
+      - '.github/workflows/gap001-ortholog-assembly-crosscheck.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  crosscheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download UCSC liftOver and mm10-to-mm39 chain
+        run: |
+          set -euo pipefail
+          curl -fsSLo /tmp/liftOver https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/liftOver
+          chmod +x /tmp/liftOver
+          curl -fsSLo /tmp/mm10ToMm39.over.chain.gz https://hgdownload.soe.ucsc.edu/goldenPath/mm10/liftOver/mm10ToMm39.over.chain.gz
+          gunzip /tmp/mm10ToMm39.over.chain.gz
+
+      - name: Lift exact site and 500-bp target tile to GRCm39
+        run: |
+          set -euo pipefail
+          printf 'chr8\t91374371\t91374372\trs1421085-ortholog\n' > /tmp/site-mm10.bed
+          printf 'chr8\t91374000\t91374500\trs1421085-target-tile\n' > /tmp/tile-mm10.bed
+          /tmp/liftOver /tmp/site-mm10.bed /tmp/mm10ToMm39.over.chain /tmp/site-mm39.bed /tmp/site-unmapped.bed
+          /tmp/liftOver /tmp/tile-mm10.bed /tmp/mm10ToMm39.over.chain /tmp/tile-mm39.bed /tmp/tile-unmapped.bed
+          test -s /tmp/site-mm39.bed
+          test -s /tmp/tile-mm39.bed
+          test ! -s /tmp/site-unmapped.bed
+          test ! -s /tmp/tile-unmapped.bed
+          echo 'EXACT SITE'; cat /tmp/site-mm39.bed
+          echo 'TARGET TILE'; cat /tmp/tile-mm39.bed
+
+      - name: Verify Fto and hibE1 relationships
+        run: |
+          python analysis/gap001_assembly_crosscheck.py \
+            --lifted-site /tmp/site-mm39.bed \
+            --lifted-tile /tmp/tile-mm39.bed \
+            --output /tmp/CDNA-001-rs1421085-assembly-crosscheck.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CDNA-001-rs1421085-assembly-crosscheck
+          path: /tmp/CDNA-001-rs1421085-assembly-crosscheck.json
+          if-no-files-found: error
+          retention-days: 30
