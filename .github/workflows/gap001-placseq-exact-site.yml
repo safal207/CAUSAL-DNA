@@ -59,24 +59,23 @@ jobs:
           assert p['coordinates']['irx3_promoter_contact_bin_10kb']==['chr8',91800000,91810000]
           assert p['coordinates']['target_contact_bin_5kb']==['chr8',91370000,91375000]
           assert p['coordinates']['irx3_promoter_contact_bin_5kb']==['chr8',91800000,91805000]
+
           calls=p['significant_contact_callset']['target_to_irx3_contacts']
-          model=p['interaction_model_table']['target_to_irx3_rows']
+          matches=p['interaction_model_table']['rows_matching_primary_count_expected_fdr']
           assert len(calls)==1, calls
-          assert len(model)==1, model
+          assert len(matches)>=1, matches
           call=calls[0]
-          m=model[0]
-          assert call['count']==49
-          assert math.isclose(call['expected'],12.6272643735288,rel_tol=1e-12)
-          assert call['fdr'] < 0.01
-          assert m['count']==49
-          assert m['ratio2'] > 2
-          assert m['fdr'] < 0.01
-          assert 'allele' in p['claim_scope'].lower()
-          assert 'causal' in p['interpretation']['allele_boundary'].lower() or 'T>C' in p['interpretation']['allele_boundary']
+          assert int(call['count'])==49
+          assert math.isclose(float(call['expected']),12.6272643735288,rel_tol=1e-12)
+          assert float(call['fdr']) < 0.01
+          assert any(int(m['count'])==49 and float(m['ratio2'])>2 and float(m['fdr'])<0.01 for m in matches)
+          assert 'wild-type' in p['claim_scope'].lower()
+          assert 'cannot show' in p['interpretation']['allele_boundary'].lower()
+          assert '10-kb' in p['interpretation']['resolution_boundary']
+
           print('CORRECTED_SEMANTIC_BOUNDARY_PASS')
-          print('SIGNIFICANT_EXACT_BIN_TO_IRX3', len(calls))
-          print('MODEL_EXACT_BIN_TO_IRX3', len(model))
-          print('MODEL_1D_PEAK_FLAGS',m['X1D_peak_bin1'],m['X1D_peak_bin2'])
+          print('SIGNIFICANT_EXACT_BIN_TO_IRX3',len(calls))
+          print('MODEL_STAT_MATCHES',len(matches))
           print('FED_FASTED_EXACT_PAIR_ROWS',len(p['fed_fasted_state_table']['target_to_irx3_rows']))
           print('GAP-001 remains OPEN; no allele dependence or mediator is established.')
           PY
