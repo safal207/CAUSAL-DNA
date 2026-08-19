@@ -1,0 +1,85 @@
+{
+  "gate_id": "CMG-001",
+  "case_id": "CDNA-001",
+  "gap_id": "GAP-001",
+  "gap_status": "OPEN",
+  "cause_found": false,
+  "outcome": "Irx3 transcription increase in adult male posterior hypothalamus",
+  "mediators": [
+    {
+      "id": "M_ARID5B",
+      "name": "ARID5B occupancy at the intact rs1421085 element",
+      "hypothesis_ref": "H1",
+      "context": "adult posterior hypothalamus; exact T/T vs C/C allele contrast; sex-stratified",
+      "declared_status": "PROJECTIVE",
+      "declared_space": "projective",
+      "evidence": {
+        "genotype_to_mediator": [],
+        "genotype_to_outcome": ["PMID:40835181"],
+        "intervention_on_mediator": [],
+        "rescue": [],
+        "independent_verification": []
+      }
+    },
+    {
+      "id": "M_CUX1",
+      "name": "CUX1 occupancy/state at the exact rs1421085 element",
+      "hypothesis_ref": "H2a",
+      "context": "adult posterior hypothalamus; exact T/T vs C/C allele contrast; sex-stratified",
+      "declared_status": "PROJECTIVE",
+      "declared_space": "projective",
+      "evidence": {
+        "genotype_to_mediator": [],
+        "genotype_to_outcome": ["PMID:40835181"],
+        "intervention_on_mediator": [],
+        "rescue": [],
+        "independent_verification": []
+      }
+    },
+    {
+      "id": "M_ACCESS",
+      "name": "Allele-dependent exact-element chromatin accessibility",
+      "hypothesis_ref": "H3",
+      "context": "adult posterior hypothalamus; prioritized responding neuronal state; exact T/T vs C/C contrast",
+      "declared_status": "PROJECTIVE",
+      "declared_space": "projective",
+      "evidence": {
+        "genotype_to_mediator": [],
+        "genotype_to_outcome": ["PMID:40835181"],
+        "intervention_on_mediator": [],
+        "rescue": [],
+        "independent_verification": []
+      }
+    },
+    {
+      "id": "M_CONTACT",
+      "name": "Allele-dependent exact-element-to-Irx3 promoter contact",
+      "hypothesis_ref": "H4",
+      "context": "adult posterior hypothalamus; exact T/T vs C/C allele contrast; matched cell state",
+      "declared_status": "PROJECTIVE",
+      "declared_space": "projective",
+      "evidence": {
+        "genotype_to_mediator": [],
+        "genotype_to_outcome": ["PMID:40835181"],
+        "intervention_on_mediator": [],
+        "rescue": [],
+        "independent_verification": []
+      }
+    },
+    {
+      "id": "M_METHYLATION",
+      "name": "Methylation-sensitive local regulatory state and reader occupancy",
+      "hypothesis_ref": "H11",
+      "context": "adult posterior hypothalamus; prioritized neuronal state; exact allele and sex interaction",
+      "declared_status": "PROJECTIVE",
+      "declared_space": "projective",
+      "evidence": {
+        "genotype_to_mediator": [],
+        "genotype_to_outcome": ["PMID:40835181"],
+        "intervention_on_mediator": [],
+        "rescue": [],
+        "independent_verification": []
+      }
+    }
+  ]
+}
