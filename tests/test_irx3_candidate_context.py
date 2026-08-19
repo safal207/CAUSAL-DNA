@@ -3,8 +3,13 @@ from pathlib import Path
 import sys
 import unittest
 
-import numpy as np
-import pandas as pd
+try:
+    import numpy as np
+    import pandas as pd
+except ModuleNotFoundError as exc:
+    raise unittest.SkipTest(
+        "scientific stack is validated in the dedicated Irx3 candidate-context workflow"
+    ) from exc
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
