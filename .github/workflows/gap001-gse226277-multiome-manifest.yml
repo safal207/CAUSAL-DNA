@@ -1,0 +1,104 @@
+name: GAP-001 GSE226277 paired Multiome manifest
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_gse226277_multiome_manifest.py'
+      - 'tests/test_gse226277_multiome_manifest.py'
+      - '.github/workflows/gap001-gse226277-multiome-manifest.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'analysis/gap001_gse226277_multiome_manifest.py'
+      - 'tests/test_gse226277_multiome_manifest.py'
+      - '.github/workflows/gap001-gse226277-multiome-manifest.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  paired-manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test pairing contract
+        run: python -m unittest tests.test_gse226277_multiome_manifest -v
+
+      - name: Download official GEO family SOFT
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/gse226277 results/gap001-gse226277-multiome-manifest
+          curl --fail --location --retry 4 --retry-all-errors \
+            -o data/gse226277/GSE226277_family.soft.gz \
+            'https://ftp.ncbi.nlm.nih.gov/geo/series/GSE226nnn/GSE226277/soft/GSE226277_family.soft.gz'
+
+      - name: Build exact hypothalamus RNA-ATAC manifest
+        run: |
+          python analysis/gap001_gse226277_multiome_manifest.py \
+            --soft data/gse226277/GSE226277_family.soft.gz \
+            --output results/gap001-gse226277-multiome-manifest/manifest.json
+
+      - name: Verify published accessions and scope
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('results/gap001-gse226277-multiome-manifest/manifest.json'))
+          assert p['pair_count'] == 4
+          expected={
+            'HYPO-RH-R1': ('GSM7070456','GSM7070464'),
+            'HYPO-AH-R1': ('GSM7070457','GSM7070465'),
+            'HYPO-RH-R2': ('GSM7070458','GSM7070466'),
+            'HYPO-AH-R2': ('GSM7070459','GSM7070467'),
+          }
+          for row in p['pairs']:
+            assert (row['rna_accession'], row['atac_accession']) == expected[row['pair_id']]
+            assert row['sex'].lower() == 'male'
+            assert row['genotype'].upper() == 'WT'
+          assert 'causal' in p['claim_scope'].lower() or 'biological' in p['claim_scope'].lower()
+          print('PAIRING_CONTRACT_PASS', p['pair_count'])
+          PY
+
+      - name: Probe supplementary files and optional fragment indexes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > /tmp/urls.tsv
+          import json
+          p=json.load(open('results/gap001-gse226277-multiome-manifest/manifest.json'))
+          for pair in p['pairs']:
+              for u in pair['rna_files']:
+                  print(pair['pair_id'], 'RNA', u, sep='\t')
+              for u in pair['atac_files']:
+                  print(pair['pair_id'], 'ATAC', u, sep='\t')
+          PY
+          printf 'pair_id\tmodality\turl\thttp_status\tcontent_length\ttbi_status\n' > results/gap001-gse226277-multiome-manifest/file_probe.tsv
+          while IFS=$'\t' read -r pair modality url; do
+            headers=$(curl -sSIL --max-time 30 --retry 2 "$url" || true)
+            status=$(printf '%s\n' "$headers" | awk '/^HTTP\//{code=$2} END{print code+0}')
+            length=$(printf '%s\n' "$headers" | awk 'BEGIN{IGNORECASE=1} /^content-length:/{gsub("\\r",""); v=$2} END{print v+0}')
+            tbi=0
+            if [[ "$modality" == "ATAC" && "$url" == *.gz ]]; then
+              tbi=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 --retry 1 "${url}.tbi" || true)
+            fi
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$pair" "$modality" "$url" "$status" "$length" "$tbi" \
+              >> results/gap001-gse226277-multiome-manifest/file_probe.tsv
+          done < /tmp/urls.tsv
+          cat results/gap001-gse226277-multiome-manifest/file_probe.tsv
+
+      - name: Upload provenance artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap001-gse226277-multiome-manifest
+          path: results/gap001-gse226277-multiome-manifest/
+          if-no-files-found: error
+          retention-days: 30
