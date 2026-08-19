@@ -1,0 +1,83 @@
+name: GAP-001 JAX VPH author h5ad probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_inspect_h5ad.py'
+      - '.github/workflows/gap001-jax-vph-h5ad-probe.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'analysis/gap001_inspect_h5ad.py'
+      - '.github/workflows/gap001-jax-vph-h5ad-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        dataset:
+          - id: global
+            url: https://singlecell.jax.org/datasets/vph/h5ad/vph-2020_global-clean.h5ad
+          - id: neuronal
+            url: https://singlecell.jax.org/datasets/vph/h5ad/vph-2020_neuronal.h5ad
+          - id: pmn
+            url: https://singlecell.jax.org/datasets/vph/h5ad/vph-2020_pmn.h5ad
+          - id: tmn_like
+            url: https://singlecell.jax.org/datasets/vph/h5ad/vph-2020_tmn_like.h5ad
+          - id: nonneuronal
+            url: https://singlecell.jax.org/datasets/vph/h5ad/vph-2020_nonneuronal.h5ad
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install h5py only
+        run: python -m pip install 'h5py>=3.10,<4'
+      - name: Download official JAX analyzed h5ad
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/jax-vph results/jax-vph-${{ matrix.dataset.id }}
+          curl --fail --location --retry 4 --retry-all-errors \
+            --connect-timeout 20 --max-time 900 \
+            --output 'data/jax-vph/${{ matrix.dataset.id }}.h5ad' \
+            '${{ matrix.dataset.url }}'
+          sha256sum 'data/jax-vph/${{ matrix.dataset.id }}.h5ad' | tee 'results/jax-vph-${{ matrix.dataset.id }}/sha256.txt'
+          ls -lh 'data/jax-vph/${{ matrix.dataset.id }}.h5ad'
+      - name: Inspect H5AD metadata layout without loading expression matrix
+        run: |
+          python analysis/gap001_inspect_h5ad.py \
+            'data/jax-vph/${{ matrix.dataset.id }}.h5ad' \
+            --max-depth 4 \
+            --output 'results/jax-vph-${{ matrix.dataset.id }}/inspection.json'
+      - name: Show annotation-related paths
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('results/jax-vph-${{ matrix.dataset.id }}/inspection.json')
+          data=json.load(open(p))
+          keys=('obs','cluster','cell','annotation','subclass','type','sex','batch','sample','gene','var')
+          for r in data['records']:
+              path=r['path'].lower()
+              if any(k in path for k in keys):
+                  print(r)
+          PY
+      - name: Upload probe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap001-jax-vph-${{ matrix.dataset.id }}-probe
+          path: results/jax-vph-${{ matrix.dataset.id }}/
+          if-no-files-found: error
+          retention-days: 30
