@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Inspect one GSE246791 SnapATAC2 h5ad without loading the full matrix.
+"""Inspect H5AD structure without loading the full expression matrix.
 
-The goal is to identify the persisted 500-bp tile matrix and coordinate encoding
-so a later locus query can be implemented with h5py against only the required
-rows/columns. This script prints metadata only and makes no biological claim.
+Originally introduced for GSE246791 SnapATAC2 files, this inspector is also
+used for the official JAX VPH analyzed H5AD objects. It serializes metadata
+only and makes no biological claim.
 """
 from __future__ import annotations
 
@@ -15,12 +15,19 @@ import h5py
 
 
 def simple(value):
+    """Convert HDF5/NumPy metadata values to JSON-safe bounded previews."""
+    if isinstance(value, h5py.Reference):
+        # H5AD categorical metadata can store object references in attributes.
+        # The pointer itself is structural metadata; do not dereference it here.
+        return "<HDF5.Reference>" if value else "<HDF5.NullReference>"
     if isinstance(value, bytes):
         return value.decode("utf-8", errors="replace")
     if hasattr(value, "tolist"):
         value = value.tolist()
     if isinstance(value, (list, tuple)):
         return [simple(v) for v in value[:20]]
+    if isinstance(value, dict):
+        return {str(k): simple(v) for k, v in list(value.items())[:20]}
     return value
 
 
