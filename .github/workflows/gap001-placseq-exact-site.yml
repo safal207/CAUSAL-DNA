@@ -47,7 +47,7 @@ jobs:
             --output /tmp/CDNA-001-exact-site-PLACseq.json \
             | tee /tmp/exact-site-placseq.log
 
-      - name: Verify corrected semantic and causal boundaries
+      - name: Verify primary call and preserve cross-callset conflict
         run: |
           python - <<'PY'
           import json, math
@@ -61,28 +61,40 @@ jobs:
           assert p['coordinates']['irx3_promoter_contact_bin_5kb']==['chr8',91800000,91805000]
 
           calls=p['significant_contact_callset']['target_to_irx3_contacts']
-          matches=p['interaction_model_table']['rows_matching_primary_count_expected_fdr']
+          candidates=p['interaction_model_table']['coordinate_candidates_near_target_and_irx3']
+          stat_matches=p['interaction_model_table']['rows_matching_primary_count_expected_fdr']
+          fed_rows=p['fed_fasted_state_table']['target_to_irx3_rows']
           assert len(calls)==1, calls
-          assert len(matches)>=1, matches
           call=calls[0]
           assert int(call['count'])==49
           assert math.isclose(float(call['expected']),12.6272643735288,rel_tol=1e-12)
           assert float(call['fdr']) < 0.01
-          assert any(int(m['count'])==49 and float(m['ratio2'])>2 and float(m['fdr'])<0.01 for m in matches)
+          # The secondary model table does NOT reproduce the primary call's exact
+          # count/expected/FDR tuple. That discrepancy is preserved as evidence,
+          # not treated as permission to erase the primary published call.
+          assert len(candidates)>=1, candidates
+          assert len(stat_matches)==0, stat_matches
+          # The separate Fed/Fasted 5-kb comparison contains the same coordinate
+          # pair but does not call a metabolic-state difference significant.
+          assert len(fed_rows)==1, fed_rows
+          assert float(fed_rows[0]['FDR']) >= 0.05
           assert 'wild-type' in p['claim_scope'].lower()
           assert 'cannot show' in p['interpretation']['allele_boundary'].lower()
           assert '10-kb' in p['interpretation']['resolution_boundary']
 
-          print('CORRECTED_SEMANTIC_BOUNDARY_PASS')
+          print('PRIMARY_10KB_CALL_PASS')
           print('SIGNIFICANT_EXACT_BIN_TO_IRX3',len(calls))
-          print('MODEL_STAT_MATCHES',len(matches))
-          print('FED_FASTED_EXACT_PAIR_ROWS',len(p['fed_fasted_state_table']['target_to_irx3_rows']))
+          print('PRIMARY_COUNT_EXPECTED_FDR',call['count'],call['expected'],call['fdr'])
+          print('MODEL_COORDINATE_CANDIDATES',len(candidates))
+          print('MODEL_EXACT_STAT_MATCHES',len(stat_matches))
+          print('FED_FASTED_EXACT_PAIR_ROWS',len(fed_rows),'STATE_FDR',fed_rows[0]['FDR'])
+          print('CROSS_CALLSET_CONFLICT: PRESERVED')
           print('GAP-001 remains OPEN; no allele dependence or mediator is established.')
           PY
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CDNA-001-exact-site-PLACseq-corrected
+          name: CDNA-001-exact-site-PLACseq-conflict-preserved
           path: |
             /tmp/CDNA-001-exact-site-PLACseq.json
             /tmp/exact-site-placseq.log
