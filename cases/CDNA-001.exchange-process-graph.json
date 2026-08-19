@@ -1,0 +1,122 @@
+{
+  "graph_id": "EPG-CDNA-001-GAP-001-v0.1",
+  "case_id": "CDNA-001",
+  "gap_id": "GAP-001",
+  "gap_status": "OPEN",
+  "source": "G_RISK_ALLELE",
+  "target": "R_IRX3_UP",
+  "kernel_found": false,
+  "declared_kernel": [],
+  "context": {
+    "species": "Mus musculus",
+    "sex": "male-prioritized; sex-stratified mechanism unresolved",
+    "region": "adult posterior hypothalamus",
+    "cell_state": "native causal cell unresolved; LHA-AHN-PVH Otp Trh Glut prioritized computationally",
+    "age": "adult"
+  },
+  "nodes": [
+    {"id": "G_RISK_ALLELE", "class": "DNA_STATE", "label": "exact rs1421085-ortholog T>C risk allele"},
+    {"id": "X_LOCAL_GRAMMAR", "class": "SEQUENCE_GRAMMAR", "label": "allele-sensitive local regulatory grammar"},
+    {"id": "X_ARID5B", "class": "TF_OCCUPANCY", "label": "ARID5B occupancy at exact element"},
+    {"id": "X_CUX1", "class": "TF_OCCUPANCY", "label": "CUX1 occupancy/state at exact element"},
+    {"id": "X_METHYL", "class": "METHYLATION_STATE", "label": "local methylated-C state"},
+    {"id": "X_READER", "class": "TF_OCCUPANCY", "label": "methylation-sensitive reader occupancy"},
+    {"id": "X_ACCESS", "class": "CHROMATIN_STATE", "label": "exact-locus accessibility"},
+    {"id": "X_CONTACT", "class": "THREE_D_CONTACT", "label": "exact-site-containing bin to Irx3 promoter contact"},
+    {"id": "X_SIGNAL", "class": "SIGNAL_STATE", "label": "chemical/electrical/mechanical signalling state"},
+    {"id": "R_IRX3_UP", "class": "TRANSCRIPT_STATE", "label": "Irx3 transcription increase"}
+  ],
+  "edges": [
+    {
+      "from": "G_RISK_ALLELE",
+      "to": "R_IRX3_UP",
+      "relation": "CAUSES",
+      "status": "INTERVENTION_SUPPORTED",
+      "evidence_refs": ["PMID:40835181"],
+      "note": "Exact-edit boundary effect is supported, but the intervening adult-PH molecular path is unresolved. This direct boundary edge deliberately prevents claiming an intermediate kernel from public data alone."
+    },
+    {
+      "from": "G_RISK_ALLELE",
+      "to": "X_LOCAL_GRAMMAR",
+      "relation": "MODULATES",
+      "status": "HYPOTHESIS",
+      "evidence_refs": [],
+      "note": "Allele-sensitive motif grammar is computationally plausible; native adult-PH occupancy remains unmeasured."
+    },
+    {
+      "from": "X_LOCAL_GRAMMAR",
+      "to": "X_ARID5B",
+      "relation": "MODULATES",
+      "status": "HYPOTHESIS",
+      "evidence_refs": []
+    },
+    {
+      "from": "X_LOCAL_GRAMMAR",
+      "to": "X_CUX1",
+      "relation": "MODULATES",
+      "status": "HYPOTHESIS",
+      "evidence_refs": []
+    },
+    {
+      "from": "X_METHYL",
+      "to": "X_READER",
+      "relation": "ENABLES",
+      "status": "HYPOTHESIS",
+      "evidence_refs": [],
+      "note": "A highly methylated adjacent CG substrate is observed, but reader identity/occupancy is unresolved."
+    },
+    {
+      "from": "X_ARID5B",
+      "to": "X_ACCESS",
+      "relation": "MODULATES",
+      "status": "HYPOTHESIS",
+      "evidence_refs": []
+    },
+    {
+      "from": "X_CUX1",
+      "to": "X_ACCESS",
+      "relation": "MODULATES",
+      "status": "HYPOTHESIS",
+      "evidence_refs": []
+    },
+    {
+      "from": "X_READER",
+      "to": "X_ACCESS",
+      "relation": "MODULATES",
+      "status": "HYPOTHESIS",
+      "evidence_refs": []
+    },
+    {
+      "from": "X_SIGNAL",
+      "to": "X_ACCESS",
+      "relation": "MODULATES",
+      "status": "HYPOTHESIS",
+      "evidence_refs": [],
+      "note": "Explicit placeholder for chemical, ionic, electrical or mechanical exchange processes; no rs1421085-specific evidence is claimed."
+    },
+    {
+      "from": "X_ACCESS",
+      "to": "R_IRX3_UP",
+      "relation": "ENABLES",
+      "status": "OBSERVATIONAL",
+      "evidence_refs": ["GSE246791", "GSE226277"],
+      "note": "Exact-locus accessibility has adult hypothalamic neuronal structure and rare same-nucleus coexistence with Irx3 RNA; this is not allele-resolved causality."
+    },
+    {
+      "from": "X_CONTACT",
+      "to": "R_IRX3_UP",
+      "relation": "ENABLES",
+      "status": "OBSERVATIONAL",
+      "evidence_refs": ["GSE295850"],
+      "note": "Wild-type adult-hypothalamus structural contact supports compatibility, not allele dependence or causal mediation."
+    },
+    {
+      "from": "R_IRX3_UP",
+      "to": "X_ACCESS",
+      "relation": "FEEDBACK",
+      "status": "HYPOTHESIS",
+      "evidence_refs": [],
+      "note": "Generic feedback placeholder; no case-specific feedback is currently established."
+    }
+  ]
+}
