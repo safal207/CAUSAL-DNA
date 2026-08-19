@@ -79,7 +79,6 @@ class NecessitySufficiencyGate:
     def computed_role(self, candidate: dict[str, Any]) -> str:
         necessity = candidate.get("necessity_test", {}).get("outcome", "not_tested")
         sufficiency = candidate.get("sufficiency_test", {}).get("outcome", "not_tested")
-        residual = candidate.get("residual_genotype_effect_after_block", "not_tested")
 
         n_positive = necessity in {"attenuated", "abolished"}
         s_positive = sufficiency in {"partial", "recapitulated"}
@@ -93,14 +92,14 @@ class NecessitySufficiencyGate:
         if necessity == "no_change" and s_positive:
             return "SUFFICIENT_NOT_NECESSARY"
 
-        if n_positive and sufficiency == "no_change":
-            return "NECESSARY_NOT_SUFFICIENT"
-
-        # Attenuation means some genotype effect survives mediator blockade.
-        # That is partial mediation even if mediator activation can recreate a
-        # large part of the downstream phenotype.
+        # Attenuation is definitionally partial mediation under this contract:
+        # some genotype effect remains after mediator blockade. This precedence
+        # must hold regardless of the sufficiency-test result.
         if necessity == "attenuated":
             return "PARTIAL_MEDIATOR"
+
+        if n_positive and sufficiency == "no_change":
+            return "NECESSARY_NOT_SUFFICIENT"
 
         if necessity == "abolished" and sufficiency == "partial":
             return "NECESSARY_PARTIALLY_SUFFICIENT"
@@ -114,8 +113,6 @@ class NecessitySufficiencyGate:
         if necessity == "not_tested" and s_positive:
             return "SUFFICIENCY_SUPPORTED"
 
-        # Conservative fallback for combinations that do not justify a named
-        # causal role under the declared contract.
         return "UNRESOLVED"
 
     def certificate(self, mediator_id: str) -> CausalRoleCertificate:
