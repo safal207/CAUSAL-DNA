@@ -1,10 +1,8 @@
 import importlib.util
-import io
 from pathlib import Path
 import sys
 import tempfile
 import unittest
-import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,6 +40,27 @@ class CodebookAtlasFetchTests(unittest.TestCase):
             p.write_text("not a zip")
             with self.assertRaises(RuntimeError):
                 FETCH.validate_zip(p)
+
+    def test_springer_prefix_is_derived_from_exact_doi(self):
+        base, stem = FETCH.springer_media_prefix("10.1038/s41586-026-10798-9")
+        self.assertIn("art%3A10.1038%2Fs41586-026-10798-9", base)
+        self.assertEqual(stem, "41586_2026_10798")
+
+    def test_motif_likeness_requires_motif_signal(self):
+        generic = [{"name": "table1.xlsx", "size": 10}, {"name": "source.csv", "size": 10}]
+        self.assertFalse(FETCH.motif_likeness(generic)[2])
+        motifs = [{"name": f"TF{i}.pwm", "size": 10} for i in range(100)]
+        self.assertTrue(FETCH.motif_likeness(motifs)[2])
+
+    def test_select_motif_zip_requires_unique_candidate(self):
+        candidates = [
+            {"looks_motif_like": False, "index": 1, "url": "a", "final_url": "a", "sha256": "a", "size_bytes": 1, "member_count": 1, "motif_named_members": 0, "motif_extension_members": 0},
+            {"looks_motif_like": True, "index": 2, "url": "b", "final_url": "b", "sha256": "b", "size_bytes": 2, "member_count": 2, "motif_named_members": 2, "motif_extension_members": 2, "data": b"x", "members": []},
+        ]
+        self.assertEqual(FETCH.select_motif_zip(candidates)["index"], 2)
+        candidates.append({"looks_motif_like": True, "index": 3, "url": "c", "final_url": "c", "sha256": "c", "size_bytes": 3, "member_count": 3, "motif_named_members": 3, "motif_extension_members": 3})
+        with self.assertRaises(RuntimeError):
+            FETCH.select_motif_zip(candidates)
 
 
 class CodebookAtlasParserTests(unittest.TestCase):
