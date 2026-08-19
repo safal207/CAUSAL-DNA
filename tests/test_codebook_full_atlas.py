@@ -64,6 +64,24 @@ class CodebookAtlasFetchTests(unittest.TestCase):
 
 
 class CodebookAtlasParserTests(unittest.TestCase):
+    def test_official_codebook_tsv(self):
+        text = (
+            b"TF\tARID5B\n"
+            b"Motif\tM01234_1.94d\n"
+            b"Pos\tA\tC\tG\tT\n"
+            b"1\t0.1\t0.2\t0.3\t0.4\n"
+            b"2\t0.4\t0.3\t0.2\t0.1\n"
+        )
+        motifs = PREP.parse_member("SupplementaryData1/ARID5B.txt", text)
+        self.assertEqual(motifs, [("ARID5B", [[0.1, 0.2, 0.3, 0.4], [0.4, 0.3, 0.2, 0.1]])])
+
+    def test_codebook_tsv_requires_monotonic_positions(self):
+        text = (
+            "TF\tTFX\nMotif\tM1\nPos\tA\tC\tG\tT\n"
+            "1\t0.1\t0.2\t0.3\t0.4\n3\t0.4\t0.3\t0.2\t0.1\n"
+        )
+        self.assertEqual(PREP.parse_codebook_tsv(text), [])
+
     def test_simple_lx4(self):
         motifs = PREP.parse_member("TFX.pwm", b">TFX\n1 2 3 4\n4 3 2 1\n")
         self.assertEqual(motifs[0][0], "TFX")
@@ -87,10 +105,12 @@ class CodebookAtlasParserTests(unittest.TestCase):
         self.assertEqual(motifs[0][0], "TFX")
         self.assertEqual(motifs[0][1][1], [4.0, 3.0, 2.0, 1.0])
 
-    def test_duplicate_conflict_signature_differs(self):
+    def test_duplicate_matrices_can_remain_distinct_representatives(self):
         a = [[1.0, 2.0, 3.0, 4.0], [4.0, 3.0, 2.0, 1.0]]
         b = [[1.0, 2.0, 3.0, 4.0], [4.0, 3.0, 2.0, 2.0]]
         self.assertNotEqual(PREP.matrix_signature(a), PREP.matrix_signature(b))
+        # Different representatives for one TF are valid published records;
+        # matrix inequality itself must not be treated as an atlas conflict.
 
 
 if __name__ == "__main__":
