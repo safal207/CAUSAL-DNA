@@ -1,0 +1,72 @@
+name: GAP-001 exact-site hypothalamus PLAC-seq
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_placseq_exact_site.py'
+      - '.github/workflows/gap001-placseq-exact-site.yml'
+  pull_request:
+    paths:
+      - 'analysis/gap001_placseq_exact_site.py'
+      - '.github/workflows/gap001-placseq-exact-site.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  exact-site-contact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download official processed PLAC-seq files only
+        run: |
+          set -euo pipefail
+          base='https://ftp.ncbi.nlm.nih.gov/geo/series/GSE295nnn'
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors \
+            -o /tmp/significant.bedpe.gz \
+            "$base/GSE295850/suppl/GSE295850_BC_CB_simple.10k.2.sig3Dinteractions.bedpe.gz"
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors \
+            -o /tmp/peaks.txt.gz \
+            "$base/GSE295850/suppl/GSE295850_basic10kb.10k.2.peaks.txt.gz"
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors \
+            -o /tmp/fasted-loops.bed.gz \
+            "$base/GSE295853/suppl/GSE295853_Loops_EdgeR_Default.bed.gz"
+          ls -lh /tmp/significant.bedpe.gz /tmp/peaks.txt.gz /tmp/fasted-loops.bed.gz
+
+      - name: Query exact target-bin to Irx3 promoter-bin contact
+        run: |
+          python analysis/gap001_placseq_exact_site.py \
+            --contacts /tmp/significant.bedpe.gz \
+            --peaks /tmp/peaks.txt.gz \
+            --fasted-loops /tmp/fasted-loops.bed.gz \
+            --output /tmp/CDNA-001-exact-site-PLACseq.json \
+            | tee /tmp/exact-site-placseq.log
+
+      - name: Verify bounded interpretation contract
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/CDNA-001-exact-site-PLACseq.json'))
+          assert p['authority']['series']=='GSE295850'
+          assert p['authority']['assembly']=='GRCm38/mm10'
+          assert p['coordinates']['exact_site_0_based']==['chr8',91374371,91374372]
+          assert p['coordinates']['target_contact_bin_10kb']==['chr8',91370000,91380000]
+          assert p['coordinates']['irx3_promoter_contact_bin_10kb']==['chr8',91800000,91810000]
+          assert 'allele' in p['claim_scope'].lower()
+          print('BOUNDARY_PASS')
+          print('TARGET_TO_IRX3_CONTACTS',p['contact_file']['target_bin_to_irx3_promoter_bin_contacts'])
+          print('No causal state is modified by this workflow.')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CDNA-001-exact-site-PLACseq
+          path: |
+            /tmp/CDNA-001-exact-site-PLACseq.json
+            /tmp/exact-site-placseq.log
+          if-no-files-found: error
+          retention-days: 30
