@@ -120,7 +120,7 @@ def springer_media_prefix(doi: str) -> tuple[str, str]:
 
     Modern Nature article DOIs encode years as three digits after the journal
     code (for example ``026`` for 2026), while older/synthetic forms may use a
-    four-digit year.  The media-object filename uses the four-digit year.
+    four-digit year. The media-object filename uses the four-digit year.
     """
     match = re.fullmatch(r"10\.1038/s(\d+)-(\d{3,4})-(\d+)-([\w-]+)", doi)
     if not match:
@@ -130,7 +130,7 @@ def springer_media_prefix(doi: str) -> tuple[str, str]:
         year = str(2000 + int(year_token))
     elif len(year_token) == 4:
         year = year_token
-    else:  # guarded by regex; retained as an explicit provenance invariant
+    else:
         raise ValueError(f"unsupported Nature DOI year token: {year_token}")
     stem = f"{journal}_{year}_{int(article_no)}"
     base = f"https://static-content.springer.com/esm/art%3A{doi.replace('/', '%2F')}/MediaObjects"
@@ -141,9 +141,6 @@ def motif_likeness(members: list[dict[str, object]]) -> tuple[int, int, bool]:
     names = [str(x["name"]).lower() for x in members]
     motif_named = sum("motif" in name or "pwm" in name for name in names)
     motif_ext = sum(Path(name).suffix.lower() in MOTIF_EXTENSIONS for name in names)
-    # Supplementary Data 1 can be either many per-TF files or one/few aggregate
-    # motif files. Require explicit motif/PWM naming for small archives; large
-    # motif-like text collections also qualify.
     looks_like = motif_named > 0 or motif_ext >= 100
     return motif_named, motif_ext, looks_like
 
@@ -231,7 +228,6 @@ def main() -> int:
 
     args.output_zip.parent.mkdir(parents=True, exist_ok=True)
     args.output_zip.write_bytes(archive)
-    # Re-read persisted bytes so provenance covers exactly what downstream sees.
     members = validate_zip(args.output_zip)
 
     provenance = {
