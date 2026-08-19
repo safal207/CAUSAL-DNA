@@ -2,13 +2,13 @@
 """Select the official Nature Codebook motif archive by the full-atlas contract.
 
 Nature's article page may be reduced for automated clients and Springer exposes
-multiple ZIP media objects for the exact DOI.  Filename/member heuristics are
-not sufficient provenance.  This selector therefore evaluates every exact-DOI
+multiple ZIP media objects for the exact DOI. Filename/member heuristics are
+not sufficient provenance. This selector therefore evaluates every exact-DOI
 motif-like ZIP with the *same motif parser* used by the downstream normalizer
 and accepts a source only when exactly one candidate yields the declared number
 of unique TFs with no conflicting duplicate representatives.
 
-For CDNA-001 the declared contract is 1,421 unique human TF motifs.  Passing
+For CDNA-001 the declared contract is 1,421 unique human TF motifs. Passing
 this gate identifies the source archive; it is not biological evidence and does
 not establish TF occupancy or causality.
 """
@@ -24,6 +24,11 @@ import gap001_fetch_codebook_atlas as fetcher
 import gap001_prepare_codebook_atlas as prepare
 
 
+def _text_head(data: bytes, limit: int = 500) -> str:
+    """Small diagnostic preview only; never used to select a source."""
+    return data[:limit].decode("utf-8", errors="replace").replace("\x00", "\\0")
+
+
 def inspect_archive(data: bytes, expected_tfs: int) -> dict[str, object]:
     """Apply the downstream one-TF/one-PWM parsing contract without writing files."""
     parsed: dict[str, tuple[list[list[float]], str]] = {}
@@ -31,15 +36,23 @@ def inspect_archive(data: bytes, expected_tfs: int) -> dict[str, object]:
     conflicting_duplicate_count = 0
     source_member_count = 0
     unparsed_member_count = 0
+    unparsed_examples: list[dict[str, object]] = []
 
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         for info in zf.infolist():
             if info.is_dir():
                 continue
             source_member_count += 1
-            motifs = prepare.parse_member(info.filename, zf.read(info))
+            member_data = zf.read(info)
+            motifs = prepare.parse_member(info.filename, member_data)
             if not motifs:
                 unparsed_member_count += 1
+                if len(unparsed_examples) < 5:
+                    unparsed_examples.append({
+                        "name": info.filename,
+                        "size": info.file_size,
+                        "text_head": _text_head(member_data),
+                    })
                 continue
             for tf, rows in motifs:
                 if len(rows) < 2 or any(len(row) != 4 for row in rows):
@@ -57,6 +70,7 @@ def inspect_archive(data: bytes, expected_tfs: int) -> dict[str, object]:
         "parsed_unique_tfs": parsed_unique_tfs,
         "source_member_count": source_member_count,
         "unparsed_member_count": unparsed_member_count,
+        "unparsed_examples": unparsed_examples,
         "duplicate_count": duplicate_count,
         "conflicting_duplicate_count": conflicting_duplicate_count,
         "full_atlas_contract_pass": (
@@ -115,8 +129,6 @@ def main() -> int:
     candidates: list[dict[str, object]] = []
     article_anchor_error: str | None = None
 
-    # Prefer an explicitly labelled Supplementary Data 1 archive when Nature
-    # exposes it, but still require the same 1,421-TF parser contract.
     try:
         explicit_url = fetcher.resolve_supplementary_data_1(article_final, page_text)
         explicit_data, explicit_final = fetcher.fetch_bytes(explicit_url)
@@ -139,13 +151,10 @@ def main() -> int:
     except RuntimeError as exc:
         article_anchor_error = str(exc)
 
-    # Exact DOI fallback: enumerate Springer's ZIP media objects, then let the
-    # parser contract—not filename guessing—decide which archive is the atlas.
     for candidate in fetcher.discover_springer_zip_candidates(args.doi, args.springer_probe_max):
         candidate["origin"] = "springer_exact_doi_media_object"
         candidates.append(candidate)
 
-    # Deduplicate identical bytes that may be reachable from both routes.
     unique: dict[str, dict[str, object]] = {}
     for candidate in candidates:
         unique.setdefault(str(candidate["sha256"]), candidate)
