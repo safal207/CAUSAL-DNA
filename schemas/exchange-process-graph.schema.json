@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/exchange-process-graph.schema.json",
+  "title": "CAUSAL-DNA Exchange Process Graph",
+  "type": "object",
+  "required": ["graph_id", "case_id", "gap_id", "gap_status", "source", "target", "kernel_found", "declared_kernel", "nodes", "edges"],
+  "additionalProperties": false,
+  "properties": {
+    "graph_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "gap_id": {"type": "string", "minLength": 1},
+    "gap_status": {"type": "string", "enum": ["OPEN", "CLOSED", "BLOCKED"]},
+    "source": {"type": "string", "minLength": 1},
+    "target": {"type": "string", "minLength": 1},
+    "kernel_found": {"type": "boolean"},
+    "declared_kernel": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "context": {"type": "object"},
+    "nodes": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["id", "class", "label"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "class": {
+            "type": "string",
+            "enum": ["DNA_STATE", "SEQUENCE_GRAMMAR", "CHROMATIN_STATE", "TF_OCCUPANCY", "METHYLATION_STATE", "THREE_D_CONTACT", "SIGNAL_STATE", "IONIC_STATE", "MECHANICAL_STATE", "REGULATORY_RNA", "TRANSCRIPT_STATE", "CELL_STATE"]
+          },
+          "label": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "relation", "status", "evidence_refs"],
+        "additionalProperties": false,
+        "properties": {
+          "from": {"type": "string", "minLength": 1},
+          "to": {"type": "string", "minLength": 1},
+          "relation": {"type": "string", "enum": ["CAUSES", "ENABLES", "MODULATES", "FEEDBACK"]},
+          "status": {"type": "string", "enum": ["HYPOTHESIS", "OBSERVATIONAL", "INTERVENTION_SUPPORTED", "RESCUE_SUPPORTED", "VERIFIED"]},
+          "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "note": {"type": "string"}
+        }
+      }
+    }
+  }
+}
