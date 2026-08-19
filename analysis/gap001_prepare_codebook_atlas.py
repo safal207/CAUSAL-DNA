@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
-"""Normalize Nature Codebook Supplementary Data 1 into one Lx4 PWM per TF.
+"""Normalize Nature Codebook Supplementary Data 1 into Lx4 PWMs.
 
-Supported text encodings are intentionally explicit: simple Lx4 matrices,
-MEME motif blocks, JASPAR-style A/C/G/T row matrices, and TRANSFAC-like blocks.
-The conversion is fail-closed for the published full atlas: the number of
-unique parsed TFs must equal --expected-tfs (1,421 in CDNA-001 Pass B).
+The published archive covers 1,421 unique human TFs but can contain more than
+one representative motif record for a TF.  This normalizer therefore preserves
+*all* published motif representatives and makes the fail-closed atlas contract
+about unique TF coverage, not a false one-TF/one-PWM assumption.
+
+Supported encodings are intentionally explicit: the official Codebook TSV
+format (TF/Motif/Pos+A+C+G+T), simple Lx4 matrices, MEME motif blocks,
+JASPAR-style A/C/G/T row matrices, and TRANSFAC-like blocks.
 
 Matrix values are preserved. Downstream allele scanning normalizes each motif
-against its own theoretical row-wise min/max, so this conversion does not claim
-that scores are comparable between different PWM construction methods.
+against its own theoretical row-wise min/max. Multiple representatives for the
+same TF are scanned independently and only then collapsed at the TF decision
+layer; normalization itself makes no occupancy or causality claim.
 """
 from __future__ import annotations
 
 import argparse
-import csv
-import io
 import json
+from collections import defaultdict
 from pathlib import Path
 import re
 import zipfile
@@ -30,7 +34,6 @@ def floats(line: str) -> list[float]:
 
 def sanitize_tf(name: str) -> str:
     name = name.strip().lstrip(">").strip()
-    # Prefer the final gene-like token if an accession precedes it.
     tokens = [t for t in re.split(r"[\s|]+", name) if t]
     if len(tokens) > 1 and re.fullmatch(r"(?:MA|M)\d+(?:\.\d+)?", tokens[0], re.I):
         name = tokens[-1]
@@ -40,6 +43,46 @@ def sanitize_tf(name: str) -> str:
     if not name:
         raise ValueError("empty TF name")
     return name
+
+
+def parse_codebook_tsv(text: str) -> list[tuple[str, list[list[float]]]]:
+    """Parse official SupplementaryData1 files.
+
+    Example:
+      TF\tNOBOX
+      Motif\tM01232_1.94d
+      Pos\tA\tC\tG\tT
+      1\t0.21\t0.30\t0.26\t0.22
+    """
+    lines = [line.rstrip("\r\n") for line in text.splitlines() if line.strip()]
+    if len(lines) < 5:
+        return []
+    first = lines[0].split("\t")
+    second = lines[1].split("\t")
+    header = lines[2].split("\t")
+    if len(first) < 2 or first[0].strip().lower() != "tf":
+        return []
+    if len(second) < 2 or second[0].strip().lower() != "motif":
+        return []
+    if [x.strip().upper() for x in header[:5]] != ["POS", "A", "C", "G", "T"]:
+        return []
+    tf = sanitize_tf(first[1])
+    rows: list[list[float]] = []
+    expected_pos = 1
+    for raw in lines[3:]:
+        parts = raw.split("\t")
+        if len(parts) < 5:
+            return []
+        try:
+            pos = int(float(parts[0]))
+            vals = [float(parts[i]) for i in range(1, 5)]
+        except ValueError:
+            return []
+        if pos != expected_pos:
+            return []
+        rows.append(vals)
+        expected_pos += 1
+    return [(tf, rows)] if len(rows) >= 2 else []
 
 
 def parse_simple_lx4(text: str, fallback: str) -> list[tuple[str, list[list[float]]]]:
@@ -133,7 +176,6 @@ def parse_transfac(text: str, fallback: str) -> list[tuple[str, list[list[float]
             name = fallback
         elif in_matrix:
             vals = floats(line)
-            # Numbered rows usually have position first, then A,C,G,T.
             if len(vals) >= 5:
                 rows.append(vals[1:5])
             elif len(vals) == 4:
@@ -153,6 +195,7 @@ def parse_member(name: str, data: bytes) -> list[tuple[str, list[list[float]]]]:
             return []
     fallback = sanitize_tf(Path(name).stem)
     parsers = (
+        lambda: parse_codebook_tsv(text),
         lambda: parse_meme(text),
         lambda: parse_jaspar_rows(text, fallback),
         lambda: parse_transfac(text, fallback),
@@ -185,8 +228,7 @@ def main() -> int:
     args = parser.parse_args()
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    parsed: dict[str, tuple[list[list[float]], str]] = {}
-    duplicates: list[dict[str, str]] = []
+    records: list[tuple[str, list[list[float]], str]] = []
     unparsed: list[str] = []
     source_member_count = 0
 
@@ -195,48 +237,63 @@ def main() -> int:
             if info.is_dir():
                 continue
             source_member_count += 1
-            data = zf.read(info)
-            motifs = parse_member(info.filename, data)
+            motifs = parse_member(info.filename, zf.read(info))
             if not motifs:
                 unparsed.append(info.filename)
                 continue
             for tf, rows in motifs:
-                if len(rows) < 2 or any(len(row) != 4 for row in rows):
-                    continue
-                if tf in parsed:
-                    same = matrix_signature(parsed[tf][0]) == matrix_signature(rows)
-                    duplicates.append({"tf": tf, "first": parsed[tf][1], "second": info.filename, "identical": str(same).lower()})
-                    if not same:
-                        continue
-                else:
-                    parsed[tf] = (rows, info.filename)
+                if len(rows) >= 2 and all(len(row) == 4 for row in rows):
+                    records.append((tf, rows, info.filename))
 
-    # Non-identical duplicate representatives make the one-TF/one-PWM contract ambiguous.
-    conflicting = [x for x in duplicates if x["identical"] == "false"]
-    for tf, (rows, _) in parsed.items():
-        write_pwm(args.output_dir / f"{tf}.pwm", tf, rows)
+    by_tf: dict[str, list[tuple[list[list[float]], str]]] = defaultdict(list)
+    for tf, rows, source in records:
+        by_tf[tf].append((rows, source))
 
+    output_records: list[dict[str, object]] = []
+    for tf in sorted(by_tf):
+        representatives = by_tf[tf]
+        for index, (rows, source) in enumerate(representatives, start=1):
+            if len(representatives) == 1:
+                filename = f"{tf}.pwm"
+            else:
+                filename = f"{tf}__rep{index:02d}.pwm"
+            write_pwm(args.output_dir / filename, tf, rows)
+            output_records.append({
+                "tf": tf,
+                "representative_index": index,
+                "representative_count_for_tf": len(representatives),
+                "source_member": source,
+                "output_pwm": filename,
+                "motif_length": len(rows),
+            })
+
+    unique_tf_count = len(by_tf)
+    motif_record_count = len(records)
+    multi_tf = {tf: len(reps) for tf, reps in by_tf.items() if len(reps) > 1}
     manifest = {
         "expected_unique_tfs": args.expected_tfs,
-        "parsed_unique_tfs": len(parsed),
+        "parsed_unique_tfs": unique_tf_count,
+        "parsed_motif_records": motif_record_count,
         "source_member_count": source_member_count,
         "unparsed_member_count": len(unparsed),
         "unparsed_members": unparsed,
-        "duplicate_count": len(duplicates),
-        "conflicting_duplicate_count": len(conflicting),
-        "duplicates": duplicates,
-        "tf_sources": {tf: src for tf, (_, src) in sorted(parsed.items())},
-        "full_atlas_contract_pass": len(parsed) == args.expected_tfs and not conflicting,
+        "multiple_representative_tf_count": len(multi_tf),
+        "max_representatives_per_tf": max((len(x) for x in by_tf.values()), default=0),
+        "multiple_representative_counts": dict(sorted(multi_tf.items())),
+        "motif_records": output_records,
+        "full_atlas_contract_pass": unique_tf_count == args.expected_tfs,
+        "contract_semantics": "1,421 unique TFs; all published representative motif records preserved",
         "claim_scope": "motif normalization only; not TF occupancy or causality",
     }
     args.manifest.parent.mkdir(parents=True, exist_ok=True)
     args.manifest.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({k: v for k, v in manifest.items() if k not in {"tf_sources", "duplicates", "unparsed_members"}}, indent=2))
+    print(json.dumps({k: v for k, v in manifest.items() if k not in {"motif_records", "unparsed_members", "multiple_representative_counts"}}, indent=2))
 
-    if conflicting:
-        raise RuntimeError(f"ambiguous non-identical duplicate TF representatives: {len(conflicting)}")
-    if len(parsed) != args.expected_tfs:
-        raise RuntimeError(f"full-atlas contract failed: expected {args.expected_tfs} unique TFs, parsed {len(parsed)}")
+    if unique_tf_count != args.expected_tfs:
+        raise RuntimeError(
+            f"full-atlas contract failed: expected {args.expected_tfs} unique TFs, parsed {unique_tf_count} "
+            f"from {motif_record_count} motif records"
+        )
     return 0
 
 
