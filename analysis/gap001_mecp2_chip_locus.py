@@ -81,17 +81,30 @@ def iter_wig(path: Path) -> Iterator[WigPoint]:
 
 
 def collect_window(path: Path, chrom: str, center0: int, radius: int) -> list[WigPoint]:
+    """Collect one coordinate window from chromosome-grouped, sorted WIG data.
+
+    GEO WIGs used here are grouped by chromosome and sorted by position. Once
+    the scanner has entered the requested chromosome, no record after the
+    window can overlap it, so reading the remainder of a genome-wide WIG would
+    be pure I/O. We stop at the first record at/after the high boundary, or
+    when the file leaves the requested chromosome after entering it.
+    """
     low, high = center0 - radius, center0 + radius + 1
     out: list[WigPoint] = []
+    seen_target_chrom = False
+    last_start0: int | None = None
     for p in iter_wig(path):
         if p.chrom != chrom:
-            continue
-        if p.end0 <= low:
-            continue
-        if p.start0 >= high:
-            # WIGs from GEO are coordinate sorted; safe early stop after the target window.
-            if out:
+            if seen_target_chrom:
                 break
+            continue
+        seen_target_chrom = True
+        if last_start0 is not None and p.start0 < last_start0:
+            raise RuntimeError(f"WIG positions are not monotonic on {chrom}")
+        last_start0 = p.start0
+        if p.start0 >= high:
+            break
+        if p.end0 <= low:
             continue
         out.append(p)
     return out
@@ -150,7 +163,6 @@ def summarize(chip: list[WigPoint], inp: list[WigPoint], center0: int) -> dict:
         "chip_over_input": (c0 / i0 if c0 is not None and i0 not in (None, 0) else None),
     }
 
-    # Contextualize the exact-bin ChIP signal against the +/-50 kb local neighborhood.
     local_chip_values = [p.value for p in chip if p.end0 > center0 - 50000 and p.start0 < center0 + 50001]
     local_input_values = [p.value for p in inp if p.end0 > center0 - 50000 and p.start0 < center0 + 50001]
     result["local_percentile"] = {
