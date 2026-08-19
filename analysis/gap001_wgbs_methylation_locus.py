@@ -85,23 +85,43 @@ def open_text(path: Path):
 
 
 def scan_cov(path: Path, chrom: str, center0: int, radius: int, seq: str, seq_start0: int, min_cov: int) -> list[Call]:
+    """Read only the requested window from chromosome-grouped Bismark coverage.
+
+    GEO coverage files are genome-coordinate sorted. After entering `chrom`,
+    the first position beyond the high boundary proves that no later row can
+    overlap the query, so the scanner exits instead of decompressing the
+    remainder of a multi-gigabyte file.
+    """
     low1 = center0 - radius + 1
     high1 = center0 + radius + 1
     calls: list[Call] = []
+    seen_target_chrom = False
+    last_start1: int | None = None
     with open_text(path) as fh:
         for raw in fh:
             if not raw.strip() or raw.startswith("#"):
                 continue
             f = raw.split()
-            if len(f) < 6 or f[0] != chrom:
+            if len(f) < 6:
                 continue
+            row_chrom = f[0]
+            if row_chrom != chrom:
+                if seen_target_chrom:
+                    break
+                continue
+            seen_target_chrom = True
             try:
                 start1 = int(f[1])
                 meth = int(float(f[4]))
                 unmeth = int(float(f[5]))
             except ValueError:
                 continue
-            if start1 < low1 or start1 > high1:
+            if last_start1 is not None and start1 < last_start1:
+                raise RuntimeError(f"coverage positions are not monotonic on {chrom}")
+            last_start1 = start1
+            if start1 > high1:
+                break
+            if start1 < low1:
                 continue
             pos0 = start1 - 1
             cov = meth + unmeth
