@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/causal-mediation-gate.schema.json",
+  "title": "CAUSAL-DNA Causal Mediation Gate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "gate_id",
+    "case_id",
+    "gap_id",
+    "gap_status",
+    "cause_found",
+    "outcome",
+    "mediators"
+  ],
+  "properties": {
+    "gate_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "gap_id": {"type": "string", "minLength": 1},
+    "gap_status": {"enum": ["OPEN", "RESOLVED"]},
+    "cause_found": {"type": "boolean"},
+    "outcome": {"type": "string", "minLength": 1},
+    "mediators": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/mediator"}
+    }
+  },
+  "$defs": {
+    "evidenceRefs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "mediator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "hypothesis_ref",
+        "context",
+        "declared_status",
+        "declared_space",
+        "evidence"
+      ],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "hypothesis_ref": {"type": "string", "minLength": 1},
+        "context": {"type": "string", "minLength": 1},
+        "declared_status": {
+          "enum": [
+            "PROJECTIVE",
+            "BARDO_ASSOCIATED",
+            "BARDO_INTERVENTION_SUPPORTED",
+            "BARDO_RESCUE_SUPPORTED",
+            "MATERIAL"
+          ]
+        },
+        "declared_space": {"enum": ["projective", "bardo", "material"]},
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "genotype_to_mediator",
+            "genotype_to_outcome",
+            "intervention_on_mediator",
+            "rescue",
+            "independent_verification"
+          ],
+          "properties": {
+            "genotype_to_mediator": {"$ref": "#/$defs/evidenceRefs"},
+            "genotype_to_outcome": {"$ref": "#/$defs/evidenceRefs"},
+            "intervention_on_mediator": {"$ref": "#/$defs/evidenceRefs"},
+            "rescue": {"$ref": "#/$defs/evidenceRefs"},
+            "independent_verification": {"$ref": "#/$defs/evidenceRefs"}
+          }
+        }
+      }
+    }
+  }
+}
