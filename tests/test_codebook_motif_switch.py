@@ -40,14 +40,16 @@ class CodebookMotifSwitchTests(unittest.TestCase):
         self.assertGreater(result.delta_normalized, 0)
 
     def test_only_variant_overlapping_windows_are_considered(self):
+        # Keep T=C on the forward strand and A=G after reverse-complementing
+        # the T>C edit. A strong motif away from the SNP must therefore not
+        # leak into the allele-switch result on either strand.
         pwm = np.array([
-            [3.0, 0.0, 0.0, 0.0],
-            [3.0, 0.0, 0.0, 0.0],
+            [3.0, 0.0, 3.0, 0.0],
+            [3.0, 0.0, 3.0, 0.0],
         ])
         ref = "AATAA"
         alt = "AACAA"
         result = MOD.best_variant_overlapping_switch("TFX", pwm, ref, alt, 2)
-        # An AA motif exists away from the variant, but it must not create a fake allele effect.
         self.assertEqual(result.abs_delta_normalized, 0.0)
 
     def test_reverse_complement(self):
