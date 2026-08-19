@@ -110,6 +110,49 @@ Implementation:
 
 The observer axis separates `model`, `experiment`, and `independent_verifier`, so the same component that proposes a mechanism cannot silently certify it as established.
 
+## Causal Mediation Gate
+
+The three-space model now has an executable **materialization lock** for molecular mediators. A plausible or associated intermediate state cannot become a causal bridge merely because it sits between genotype and outcome.
+
+```text
+PROJECTIVE
+    |
+    | genotype -> mediator + genotype -> outcome
+    v
+BARDO_ASSOCIATED
+    |
+    | intervene(mediator)
+    v
+BARDO_INTERVENTION_SUPPORTED
+    |
+    | rescue in the risk-allele background
+    v
+BARDO_RESCUE_SUPPORTED
+    |
+    | independent verification
+    v
+MATERIAL
+```
+
+The central invariant is:
+
+```text
+association != mediation
+intervention != mediation
+intervention + rescue != independently verified mediation
+```
+
+CMG rejects manual `MATERIAL` promotion, rescue without intervention, verification without rescue, and `cause_found=true` without a material mediator certificate.
+
+Implementation:
+
+- [`causal_dna/mediation_gate.py`](causal_dna/mediation_gate.py) — executable gate and mediator certificates;
+- [`schemas/causal-mediation-gate.schema.json`](schemas/causal-mediation-gate.schema.json) — machine-readable contract;
+- [`cases/CDNA-001.mediation-gate.json`](cases/CDNA-001.mediation-gate.json) — live GAP-001 mediator state;
+- [`docs/causal-mediation-gate.md`](docs/causal-mediation-gate.md) — transition semantics and scientific invariants.
+
+For CDNA-001, ARID5B, CUX1, local accessibility, enhancer-to-Irx3 contact and methylation-linked state remain non-material until the required exact-allele, matched-context evidence chain is observed.
+
 ## Self-updating causal processor
 
 The authoritative research history is append-only:
@@ -280,4 +323,4 @@ CAUSAL-DNA is a computational and evidence-mapping research project. It does **n
 
 ---
 
-**Status:** bootstrap / causal proof protocol + three-space graph + 4D lattice + append-only processor + active experiment selection + adaptive replanning + budgeted multi-step strategy planning + planning-prior robustness analysis
+**Status:** bootstrap / causal proof protocol + three-space graph + 4D lattice + causal mediation gate + append-only processor + active experiment selection + adaptive replanning + budgeted multi-step strategy planning + planning-prior robustness analysis
