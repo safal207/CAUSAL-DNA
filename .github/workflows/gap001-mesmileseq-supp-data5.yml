@@ -1,0 +1,71 @@
+name: GAP-001 meSMiLE Supplementary Data 5 probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_probe_mesmileseq_xlsx.py'
+      - 'tests/test_mesmileseq_xlsx_probe.py'
+      - '.github/workflows/gap001-mesmileseq-supp-data5.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'analysis/gap001_probe_mesmileseq_xlsx.py'
+      - 'tests/test_mesmileseq_xlsx_probe.py'
+      - '.github/workflows/gap001-mesmileseq-supp-data5.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-supplementary-data-5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test OpenXML inspector
+        run: python -m unittest tests.test_mesmileseq_xlsx_probe -v
+
+      - name: Download official Supplementary Data 5 XLSX
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/mesmile results/gap001-mesmileseq-data5
+          url='https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41467-026-71387-y/MediaObjects/41467_2026_71387_MOESM9_ESM.xlsx'
+          curl --fail --location --retry 4 --retry-all-errors \
+            --output data/mesmile/supplementary-data-5.xlsx "$url"
+          python - <<'PY'
+          import hashlib, json, pathlib, zipfile
+          path=pathlib.Path('data/mesmile/supplementary-data-5.xlsx')
+          assert zipfile.is_zipfile(path), 'download is not XLSX/OpenXML ZIP'
+          out={
+            'source_url':'https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41467-026-71387-y/MediaObjects/41467_2026_71387_MOESM9_ESM.xlsx',
+            'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+            'size_bytes':path.stat().st_size,
+            'claim_scope':'source provenance only; no methylation class inferred',
+          }
+          pathlib.Path('results/gap001-mesmileseq-data5/source-provenance.json').write_text(json.dumps(out,indent=2)+'\n')
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Inspect workbook sheets and sample rows
+        run: |
+          python analysis/gap001_probe_mesmileseq_xlsx.py \
+            --xlsx data/mesmile/supplementary-data-5.xlsx \
+            --output-json results/gap001-mesmileseq-data5/workbook-probe.json \
+            --max-rows 50
+
+      - name: Upload workbook probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap001-mesmileseq-data5-probe
+          path: results/gap001-mesmileseq-data5/
+          if-no-files-found: error
+          retention-days: 30
