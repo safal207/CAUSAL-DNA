@@ -9,6 +9,13 @@ on:
       - 'analysis/gap001_codebook_motif_switch.py'
       - 'tests/test_codebook_motif_switch.py'
       - '.github/workflows/gap001-codebook-motif-switch.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'analysis/gap001_codebook_motif_switch.py'
+      - 'tests/test_codebook_motif_switch.py'
+      - '.github/workflows/gap001-codebook-motif-switch.yml'
 
 permissions:
   contents: read
