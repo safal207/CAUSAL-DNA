@@ -116,10 +116,22 @@ def validate_zip(path: Path) -> list[dict[str, object]]:
 
 
 def springer_media_prefix(doi: str) -> tuple[str, str]:
-    match = re.fullmatch(r"10\.1038/s(\d+)-(\d{4})-(\d+)-([\w-]+)", doi)
+    """Derive Springer media-object prefix from the exact Nature DOI.
+
+    Modern Nature article DOIs encode years as three digits after the journal
+    code (for example ``026`` for 2026), while older/synthetic forms may use a
+    four-digit year.  The media-object filename uses the four-digit year.
+    """
+    match = re.fullmatch(r"10\.1038/s(\d+)-(\d{3,4})-(\d+)-([\w-]+)", doi)
     if not match:
         raise ValueError(f"unsupported Nature DOI shape for media-object discovery: {doi}")
-    journal, year, article_no, _ = match.groups()
+    journal, year_token, article_no, _ = match.groups()
+    if len(year_token) == 3:
+        year = str(2000 + int(year_token))
+    elif len(year_token) == 4:
+        year = year_token
+    else:  # guarded by regex; retained as an explicit provenance invariant
+        raise ValueError(f"unsupported Nature DOI year token: {year_token}")
     stem = f"{journal}_{year}_{int(article_no)}"
     base = f"https://static-content.springer.com/esm/art%3A{doi.replace('/', '%2F')}/MediaObjects"
     return base, stem
