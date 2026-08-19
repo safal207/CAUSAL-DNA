@@ -1,0 +1,101 @@
+{
+  "gate_id": "NSG-001",
+  "case_id": "CDNA-001",
+  "gap_id": "GAP-001",
+  "cmg_ref": "CMG-001",
+  "gap_status": "OPEN",
+  "causal_role_found": false,
+  "outcome": "Irx3 transcription increase in adult male posterior hypothalamus",
+  "mediators": [
+    {
+      "id": "M_ARID5B",
+      "hypothesis_ref": "H1",
+      "context": "adult posterior hypothalamus; exact T/T vs C/C allele contrast; sex-stratified; responding cell state",
+      "declared_role": "UNRESOLVED",
+      "necessity_test": {
+        "intervention": "normalize or block ARID5B occupancy/state without altering rs1421085",
+        "outcome": "not_tested",
+        "evidence_refs": []
+      },
+      "sufficiency_test": {
+        "intervention": "recreate risk-allele-like ARID5B occupancy/state in reference-allele background",
+        "outcome": "not_tested",
+        "evidence_refs": []
+      },
+      "residual_genotype_effect_after_block": "not_tested",
+      "independent_verification": {"evidence_refs": []}
+    },
+    {
+      "id": "M_CUX1",
+      "hypothesis_ref": "H2a",
+      "context": "adult posterior hypothalamus; exact T/T vs C/C allele contrast; sex-stratified; responding cell state",
+      "declared_role": "UNRESOLVED",
+      "necessity_test": {
+        "intervention": "normalize or block CUX1 occupancy/state while preserving the SNP-containing element",
+        "outcome": "not_tested",
+        "evidence_refs": []
+      },
+      "sufficiency_test": {
+        "intervention": "recreate risk-allele-like CUX1 state in reference-allele background",
+        "outcome": "not_tested",
+        "evidence_refs": []
+      },
+      "residual_genotype_effect_after_block": "not_tested",
+      "independent_verification": {"evidence_refs": []}
+    },
+    {
+      "id": "M_ACCESS",
+      "hypothesis_ref": "H3",
+      "context": "adult posterior hypothalamus; prioritized responding neuronal state; exact allele contrast",
+      "declared_role": "UNRESOLVED",
+      "necessity_test": {
+        "intervention": "normalize exact-element accessibility while preserving genotype",
+        "outcome": "not_tested",
+        "evidence_refs": []
+      },
+      "sufficiency_test": {
+        "intervention": "recreate risk-allele-like exact-element accessibility in reference genotype",
+        "outcome": "not_tested",
+        "evidence_refs": []
+      },
+      "residual_genotype_effect_after_block": "not_tested",
+      "independent_verification": {"evidence_refs": []}
+    },
+    {
+      "id": "M_CONTACT",
+      "hypothesis_ref": "H4",
+      "context": "adult posterior hypothalamus; matched responding cell state; exact allele contrast",
+      "declared_role": "UNRESOLVED",
+      "necessity_test": {
+        "intervention": "disrupt or normalize exact-element-to-Irx3 contact while preserving genotype",
+        "outcome": "not_tested",
+        "evidence_refs": []
+      },
+      "sufficiency_test": {
+        "intervention": "recreate risk-allele-like element-to-Irx3 contact in reference genotype",
+        "outcome": "not_tested",
+        "evidence_refs": []
+      },
+      "residual_genotype_effect_after_block": "not_tested",
+      "independent_verification": {"evidence_refs": []}
+    },
+    {
+      "id": "M_METHYLATION",
+      "hypothesis_ref": "H11",
+      "context": "adult posterior hypothalamus; prioritized responding neuronal state; exact allele and sex interaction",
+      "declared_role": "UNRESOLVED",
+      "necessity_test": {
+        "intervention": "normalize local methylation or top reader occupancy while preserving genotype",
+        "outcome": "not_tested",
+        "evidence_refs": []
+      },
+      "sufficiency_test": {
+        "intervention": "recreate risk-allele-like methylation/reader state in reference genotype",
+        "outcome": "not_tested",
+        "evidence_refs": []
+      },
+      "residual_genotype_effect_after_block": "not_tested",
+      "independent_verification": {"evidence_refs": []}
+    }
+  ]
+}
