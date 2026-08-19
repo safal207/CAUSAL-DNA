@@ -1,0 +1,57 @@
+{
+  "case_id": "CDNA-001",
+  "gap_id": "GAP-001",
+  "dataset": "GSE246791",
+  "assembly": "mm10",
+  "cohort_scope": "adult male mouse hypothalamus snATAC samples used for locus-level raw accessibility follow-up",
+  "query_locus": {
+    "chrom": "chr8",
+    "position_0_based": 91374371,
+    "position_1_based": 91374372,
+    "variant": "mouse ortholog of human rs1421085 T>C"
+  },
+  "dissections": [
+    {
+      "region_name": "HY-1",
+      "dissection_code": "6H",
+      "detail_region": "HY",
+      "replicates": [
+        {"cemba_sample_id": "CEMBA200312_6H", "geo_accession": "GSM7877104", "replicate": 1},
+        {"cemba_sample_id": "CEMBA200319_6H", "geo_accession": "GSM7877105", "replicate": 2}
+      ]
+    },
+    {
+      "region_name": "HY-2",
+      "dissection_code": "7J",
+      "detail_region": "HY",
+      "replicates": [
+        {"cemba_sample_id": "CEMBA200305_7J", "geo_accession": "GSM7877102", "replicate": 1},
+        {"cemba_sample_id": "CEMBA200520_7J", "geo_accession": "GSM7877103", "replicate": 2}
+      ]
+    },
+    {
+      "region_name": "HY-3",
+      "dissection_code": "8K",
+      "detail_region": "HY",
+      "replicates": [
+        {"cemba_sample_id": "CEMBA200312_8K", "geo_accession": "GSM7877106", "replicate": 1},
+        {"cemba_sample_id": "CEMBA200319_8K", "geo_accession": "GSM7877107", "replicate": 2}
+      ]
+    },
+    {
+      "region_name": "HY-4",
+      "dissection_code": "9L",
+      "detail_region": "HY",
+      "replicates": [
+        {"cemba_sample_id": "CEMBA200305_9L", "geo_accession": "GSM7876880", "replicate": 1},
+        {"cemba_sample_id": "CEMBA200520_9L", "geo_accession": "GSM7876882", "replicate": 2}
+      ]
+    }
+  ],
+  "provenance": [
+    "beyondpie/CEMBA_wmb_snATAC meta/BrainRegion.Metadata.txt",
+    "beyondpie/CEMBA_wmb_snATAC 00.data.preprocess/src/main/resource/mba.whole.sample.lst",
+    "NCBI GEO GSE246791 sample registry"
+  ],
+  "interpretation_guard": "Anatomical dissection membership is context metadata, not evidence that the queried locus is accessible or causal."
+}

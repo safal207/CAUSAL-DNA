@@ -1,0 +1,173 @@
+name: GAP-001 full 1421-TF Codebook atlas
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_fetch_codebook_atlas.py'
+      - 'analysis/gap001_select_codebook_atlas_source.py'
+      - 'analysis/gap001_prepare_codebook_atlas.py'
+      - 'analysis/gap001_codebook_motif_switch.py'
+      - 'analysis/gap001_probe_mesmileseq_xlsx.py'
+      - 'analysis/gap001_mesmileseq_methylation_triage.py'
+      - 'tests/test_codebook_full_atlas.py'
+      - 'tests/test_codebook_motif_switch.py'
+      - 'tests/test_mesmileseq_methylation_triage.py'
+      - '.github/workflows/gap001-codebook-full-atlas.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'analysis/gap001_fetch_codebook_atlas.py'
+      - 'analysis/gap001_select_codebook_atlas_source.py'
+      - 'analysis/gap001_prepare_codebook_atlas.py'
+      - 'analysis/gap001_codebook_motif_switch.py'
+      - 'analysis/gap001_probe_mesmileseq_xlsx.py'
+      - 'analysis/gap001_mesmileseq_methylation_triage.py'
+      - 'tests/test_codebook_full_atlas.py'
+      - 'tests/test_codebook_motif_switch.py'
+      - 'tests/test_mesmileseq_methylation_triage.py'
+      - '.github/workflows/gap001-codebook-full-atlas.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  full-codebook-atlas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install scientific dependencies
+        run: python -m pip install -r analysis/requirements.txt
+
+      - name: Test provenance, motif normalization, scanner, and methylation join
+        run: |
+          python -m unittest tests.test_codebook_full_atlas -v
+          python -m unittest tests.test_codebook_motif_switch -v
+          python -m unittest tests.test_mesmileseq_methylation_triage -v
+
+      - name: Select Nature Supplementary Data 1 by unique-TF parser contract
+        run: |
+          mkdir -p data/codebook-full data/mesmile results/gap001-codebook-full-atlas
+          python analysis/gap001_select_codebook_atlas_source.py \
+            --expected-tfs 1421 \
+            --output-zip data/codebook-full/supplementary-data-1.zip \
+            --provenance-json results/gap001-codebook-full-atlas/source-provenance.json
+
+      - name: Normalize all published representatives and assert 1421 unique TFs
+        run: |
+          python analysis/gap001_prepare_codebook_atlas.py \
+            --input-zip data/codebook-full/supplementary-data-1.zip \
+            --output-dir data/codebook-full/pwms \
+            --manifest results/gap001-codebook-full-atlas/atlas-manifest.json \
+            --expected-tfs 1421
+          python - <<'PY'
+          import json, pathlib
+          m=json.load(open('results/gap001-codebook-full-atlas/atlas-manifest.json'))
+          files=list(pathlib.Path('data/codebook-full/pwms').glob('*.pwm'))
+          assert m['full_atlas_contract_pass'] is True
+          assert m['parsed_unique_tfs'] == 1421
+          assert len(files) == m['parsed_motif_records']
+          assert len(files) >= 1421
+          print('UNIQUE_TFS', m['parsed_unique_tfs'])
+          print('MOTIF_RECORDS', m['parsed_motif_records'])
+          print('MULTI_REPRESENTATIVE_TFS', m['multiple_representative_tf_count'])
+          PY
+
+      - name: Fetch exact hg38 rs1421085 sequence
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 4 --retry-all-errors \
+            --output data/codebook-full/rs1421085.hg38.json \
+            'https://api.genome.ucsc.edu/getData/sequence?genome=hg38;chrom=chr16;start=53766961;end=53767122'
+          python - <<'PY'
+          import json
+          p=json.load(open('data/codebook-full/rs1421085.hg38.json'))
+          dna=p['dna'].upper()
+          assert len(dna) == 161
+          assert dna[80] == 'T'
+          print('context', dna[70:91])
+          PY
+
+      - name: Download public adult VPH expression matrices
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='https://raw.githubusercontent.com/TheJacksonLaboratory/ventral-posterior-hypothalamus-scrnaseq/master/data/cellranger'
+          for sample in AJ18003 AJ18004 AJ19001 AJ19002; do
+            mkdir -p "data/gse146692/${sample}"
+            curl --fail --location --retry 4 --retry-all-errors \
+              --output "data/gse146692/${sample}/filtered_feature_bc_matrix.h5" \
+              "${root}/${sample}/filtered_feature_bc_matrix.h5"
+          done
+
+      - name: Scan exact T>C across every published motif representative
+        run: |
+          python analysis/gap001_codebook_motif_switch.py \
+            --motif-dir data/codebook-full/pwms \
+            --sequence-json data/codebook-full/rs1421085.hg38.json \
+            --variant-index 80 \
+            --ref T \
+            --alt C \
+            --expression-root data/gse146692 \
+            --top-expression 80 \
+            --output-dir results/gap001-codebook-full-atlas
+
+      - name: Download official meSMiLE Supplementary Data 5
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 4 --retry-all-errors \
+            --output data/mesmile/supplementary-data-5.xlsx \
+            'https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41467-026-71387-y/MediaObjects/41467_2026_71387_MOESM9_ESM.xlsx'
+
+      - name: Join published methylation classes to full atlas scan
+        run: |
+          python analysis/gap001_mesmileseq_methylation_triage.py \
+            --xlsx data/mesmile/supplementary-data-5.xlsx \
+            --motif-switches results/gap001-codebook-full-atlas/motif_switches.csv \
+            --expression-csv results/gap001-codebook-full-atlas/vph_expression_feasibility.csv \
+            --output-dir results/gap001-codebook-full-atlas \
+            --shortlist-size 60
+
+      - name: Verify full scan scope and causal boundary
+        run: |
+          python - <<'PY'
+          import csv, json
+          rows=list(csv.DictReader(open('results/gap001-codebook-full-atlas/motif_switches.csv')))
+          manifest=json.load(open('results/gap001-codebook-full-atlas/atlas-manifest.json'))
+          source=json.load(open('results/gap001-codebook-full-atlas/source-provenance.json'))
+          triage=json.load(open('results/gap001-codebook-full-atlas/methylation_triage_summary.json'))
+          unique_tfs={r['tf'] for r in rows}
+          record_ids={r['motif_record_id'] for r in rows}
+          assert source['selected_atlas_contract']['full_atlas_contract_pass'] is True
+          assert source['selected_atlas_contract']['parsed_unique_tfs'] == 1421
+          assert manifest['full_atlas_contract_pass'] is True
+          assert len(unique_tfs) == 1421, len(unique_tfs)
+          assert len(rows) == manifest['parsed_motif_records'], (len(rows), manifest['parsed_motif_records'])
+          assert len(record_ids) == len(rows), 'motif record provenance IDs must be unique'
+          assert triage['motifs_joined'] == len(rows)
+          forbidden={'cause_found','causal_status','materialized','verified'}
+          assert not (forbidden & set(triage))
+          print('FULL_ATLAS_UNIQUE_TFS', len(unique_tfs))
+          print('FULL_ATLAS_MOTIF_RECORDS', len(rows))
+          print('SELECTED_SOURCE', source['selected_index'], source['selected_sha256'])
+          print(open('results/gap001-codebook-full-atlas/report.md').read())
+          print(open('results/gap001-codebook-full-atlas/methylation_triage_report.md').read())
+          PY
+
+      - name: Upload discovery artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap001-codebook-full-atlas
+          path: results/gap001-codebook-full-atlas/
+          if-no-files-found: error
+          retention-days: 30

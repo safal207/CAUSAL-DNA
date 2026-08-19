@@ -1,0 +1,32 @@
+[
+  {
+    "scenario_id": "SIM-E1-NEGATIVE",
+    "case_id": "CDNA-001",
+    "simulation_only": true,
+    "description": "Hypothetical planning-only scenario: exact-allele ARID5B occupancy assay finds no allele-specific occupancy in adult PH. This is not recorded as biological evidence and does not change GAP-001 causal status.",
+    "outcomes": [
+      {
+        "generation": 2,
+        "experiment_id": "E1_ARID5B_OCCUPANCY",
+        "outcome_name": "no_allele_specific_occupancy",
+        "simulation_only": true,
+        "note": "Used only to verify adaptive ranking after a negative first test."
+      }
+    ]
+  },
+  {
+    "scenario_id": "SIM-E1-POSITIVE",
+    "case_id": "CDNA-001",
+    "simulation_only": true,
+    "description": "Hypothetical planning-only scenario: exact-allele ARID5B occupancy assay finds allele-specific occupancy. This updates planning weights only.",
+    "outcomes": [
+      {
+        "generation": 2,
+        "experiment_id": "E1_ARID5B_OCCUPANCY",
+        "outcome_name": "allele_specific_occupancy",
+        "simulation_only": true,
+        "note": "Used only to verify that the next-test ranking adapts in the opposite direction."
+      }
+    ]
+  }
+]

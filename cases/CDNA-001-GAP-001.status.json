@@ -1,0 +1,191 @@
+{
+  "case_id": "CDNA-001",
+  "gap_id": "GAP-001",
+  "updated": "2026-08-19",
+  "question": "What adult posterior-hypothalamic molecular regulatory state connects rs1421085 T>C to increased Irx3 expression, particularly in males?",
+  "boundary_conditions": {
+    "upstream": {
+      "state": "supported_by_exact_genetic_intervention",
+      "claim": "Engineered rs1421085 risk-allele mice show genotype-dependent Irx3 increase with a notable dose-dependent effect in male posterior hypothalamus.",
+      "source_pmids": ["40835181"]
+    },
+    "downstream": {
+      "state": "supported_by_targeted_perturbation",
+      "claim": "Increasing IRX3 in IRX3-positive posterior-hypothalamic neurons decreases neuronal excitability/activity and increases feeding/body weight; inhibiting those neurons phenocopies the behavioral direction.",
+      "source_pmids": ["40835181"]
+    }
+  },
+  "missing_edge": {
+    "from": "rs1421085 T>C",
+    "to": "Irx3 transcription increase in adult male posterior hypothalamus",
+    "missing": "allele-dependent molecular mediator and native cell of regulatory action",
+    "status": "OPEN"
+  },
+  "hypotheses": [
+    {
+      "id": "H1",
+      "name": "ARID5B reuse",
+      "status": "CELL_AND_MOTIF_FEASIBLE_BUT_OCCUPANCY_UNPROVEN_WITH_NEGATIVE_TENSION",
+      "support": [
+        "Exact rs1421085 ARID5B mechanism is causal in adipocyte progenitors.",
+        "CAUSAL-DNA GSE146692 screen detects Arid5b in 28.420% of Irx3-positive VPH cells.",
+        "Strict human-to-mouse motif portability preserves the same ARID5B allele-effect direction, strand and motif offset at the exact ortholog.",
+        "ARID5B RNA is detected in both sparse exact-locus-positive/Irx3-positive nuclei in the independent GSE226277 Multiome reanalysis."
+      ],
+      "against": [
+        "DEL82 perturbation produced no detectable Irx3/Irx5 change in bulk young/adult hypothalamus.",
+        "No adult-PH exact-allele ARID5B occupancy measurement has been identified in reviewed primary studies or the targeted public-data search."
+      ],
+      "next_test": "Measure ARID5B occupancy at the intact rs1421085 element in T/T vs C/C adult PH cells, sex-stratified."
+    },
+    {
+      "id": "H2a",
+      "name": "CUX1 exact-site/combinatorial role",
+      "status": "EXACT_SITE_CELL_AND_MOTIF_FEASIBLE_WITH_TARGET_GENE_CONFLICT",
+      "support": [
+        "Published exact-site assays show allele-dependent CUX1 P110/P200 binding preference.",
+        "CAUSAL-DNA GSE146692 screen detects Cux1 in 35.288% of Irx3-positive cells and 54.420% of Irx3/Arid5b double-positive cells.",
+        "Strict human-to-mouse motif portability preserves the same CUX1 allele-effect direction, strand and motif offset at the exact ortholog.",
+        "CUX1 RNA is detected in both sparse exact-locus-positive/Irx3-positive nuclei in the independent GSE226277 Multiome reanalysis."
+      ],
+      "against": [
+        "Existing neuronal CUX1 model linked the locus to FTO/RPGRIP1L/AKTIP rather than genotype-associated IRX3/IRX5.",
+        "No direct adult-hypothalamus CUX1 occupancy measurement at the exact ortholog was identified in the targeted public-data search."
+      ],
+      "next_test": "Measure CUX1 occupancy/state at the exact element in adult PH and perturb CUX1 while preserving the SNP-containing sequence."
+    },
+    {
+      "id": "H3",
+      "name": "Allele-dependent chromatin accessibility",
+      "status": "WILD_TYPE_ADULT_ACCESSIBILITY_SUPPORTED_ALLELE_EFFECT_UNTESTED",
+      "support": [
+        "Deletion-versus-point-substitution discordance is compatible with an intact-element state change.",
+        "The exact 500-bp tile containing the mouse ortholog has low-frequency raw accessibility across the intended 8/8 adult male hypothalamus snATAC samples in GSE246791.",
+        "The all-8 official-subclass analysis contains 154 exact-tile-positive nuclei among 83,321 nuclei and statistically prioritizes LHA-AHN-PVH Otp Trh Glut cells."
+      ],
+      "against": [
+        "The exact locus is absent from the thresholded union candidate-enhancer catalog, arguing against a strong constitutive adult-brain cCRE.",
+        "All available accessibility evidence is wild-type; no T-vs-C adult-PH accessibility contrast is yet available."
+      ],
+      "next_test": "Matched T/T vs C/C snATAC or targeted ATAC in the statistically prioritized adult PH/LHA/AHN/PVH cell states, male and female."
+    },
+    {
+      "id": "H4",
+      "name": "Allele-dependent 3D enhancer-target contact",
+      "status": "EXACT_ORTHOLOG_BIN_TO_IRX3_WILD_TYPE_CONTACT_SUPPORTED_ALLELE_EFFECT_UNTESTED",
+      "support": [
+        "FTO obesity interval has published long-range IRX3/IRX5 interactions in brain/hypothalamic-neuron contexts.",
+        "Reanalysis of the published adult-hypothalamus GSE295850 H3K27ac+ PLAC-seq significant-call set identifies one 10-kb contact between the bin containing the exact rs1421085 ortholog and the Irx3 promoter bin: observed count 49, expected 12.6272643735288, FDR 2.8483024481983e-14."
+      ],
+      "against": [
+        "The secondary interaction-model table does not reproduce the primary call's exact count/expected/FDR tuple.",
+        "A separate Fed/Fasted 5-kb comparison contains the coordinate pair but does not show a significant state-dependent difference (FDR 1.0).",
+        "The 10-kb call cannot show that the exact 500-bp element or exact base is the physical contact anchor, nor that contact differs between T and C alleles."
+      ],
+      "next_test": "Measure exact-element-to-Irx3 contact in matched T/T vs C/C adult PH genotype/sex/cell-state groups and resolve the 10-kb anchor to the exact regulatory element."
+    },
+    {
+      "id": "H5",
+      "name": "Indirect mediator",
+      "status": "OPEN_LOW_SPECIFICITY",
+      "support": [],
+      "against": [],
+      "next_test": "Raise priority only if local occupancy/accessibility/contact measurements fail to mediate the genotype-to-Irx3 effect."
+    },
+    {
+      "id": "H6",
+      "name": "Cell composition rather than per-cell transcription",
+      "status": "OPEN_BUT_CELL_STATE_NOW_STATISTICALLY_PRIORITIZED",
+      "support": [
+        "Regional expression measurements cannot alone distinguish per-cell induction from composition/state shifts.",
+        "Exact-tile accessibility is non-uniform across official adult hypothalamus subclasses, so cell-state composition remains relevant."
+      ],
+      "against": [
+        "Independent same-nucleus GSE226277 data show exact-locus ATAC plus Irx3 RNA in the same nucleus in 2/4 biological pairs, demonstrating at least sparse per-nucleus compatibility."
+      ],
+      "next_test": "Exact-SNP single-cell or spatial expression with cell abundance and per-cell Irx3 modeled separately in genotype- and sex-matched tissue."
+    },
+    {
+      "id": "H7",
+      "name": "Sex/context interaction",
+      "status": "SUPPORTED_AS_EFFECT_MODIFIER_MECHANISM_UNKNOWN",
+      "support": [
+        "Male posterior hypothalamus shows a notable genotype-dose Irx3 response that was not observed in females."
+      ],
+      "against": [
+        "Coarse Arid5b/Irx3 and Cux1/Irx3 transcript co-detection is similar between pooled male and female GSE146692 cells.",
+        "The seven-candidate Irx3-positive transcript feasibility screen shows only small and inconsistent male-female differences, arguing against simple TF transcript availability as the sex mechanism."
+      ],
+      "next_test": "Test allele-by-sex interaction at accessibility, methylation, occupancy and contact layers, not only baseline transcript abundance."
+    },
+    {
+      "id": "H8",
+      "name": "Point-substitution-specific intact enhancer grammar",
+      "status": "SUPPORTED_AS_DISCRIMINATING_HYPOTHESIS",
+      "support": [
+        "Exact T>C and 82-bp deletion yield discordant adult CNS observations.",
+        "rs1421085 has evidence for multiple allele-sensitive factor grammars.",
+        "The exact ortholog lies outside the previously functionally deleted Fto-Irx::hibE1 element by about 13.9 kb after assembly reconciliation, so published hibE1 deletion phenotypes do not perturb this exact sequence."
+      ],
+      "against": [],
+      "next_test": "Preserve the element and compare exact alleles while measuring occupancy, accessibility, methylation, contact and Irx3 in the same biological context."
+    },
+    {
+      "id": "H9",
+      "name": "Temporal/developmental gating",
+      "status": "SUPPORTED_ARCHITECTURAL_MODIFIER",
+      "support": [
+        "Larger FTO obesity-interval deletion affects Irx3/Irx5 in embryonic/developmental hypothalamic contexts but not adult bulk hypothalamus.",
+        "Human hypothalamic precursor deletion effect is restricted to a POMC-expressing subgroup."
+      ],
+      "against": [],
+      "next_test": "Include developmental/state markers in adult responding cells and compare with developmental locus states."
+    },
+    {
+      "id": "H10",
+      "name": "Multi-target enhancer grammar",
+      "status": "SUPPORTED_AS_ARCHITECTURAL_HYPOTHESIS",
+      "support": [
+        "Different cellular contexts link the FTO interval to IRX3/IRX5 versus FTO/RPGRIP1L target programs."
+      ],
+      "against": [],
+      "next_test": "Measure Irx3, Irx5, Fto and Rpgrip1l together with contact/occupancy in the exact adult PH allele contrast."
+    },
+    {
+      "id": "H11",
+      "name": "Methylation-sensitive local regulatory state",
+      "status": "LOCAL_METHYLATED_CG_SUBSTRATE_SUPPORTED_READER_UNKNOWN",
+      "support": [
+        "Adult male hypothalamus WGBS GSE84533 shows a highly methylated CG substrate within +/-250 bp of the exact ortholog in all 3/3 biological replicates: coverage-weighted mCG 95.918%, 97.222% and 93.103%.",
+        "The nearest qualifying CG is 1 bp upstream of the ortholog in all three replicates and is 100%, 83.33% and 83.33% methylated respectively.",
+        "Strict human-to-mouse motif analysis and adult Irx3-positive transcript screens retain multiple methylation/chromatin-linked candidates including MECP2, TET1, KDM2B and DNMT1."
+      ],
+      "against": [
+        "The WGBS data are bulk wild-type adult male hypothalamus and cannot establish cell-specific or allele-dependent methylation.",
+        "A methylated local substrate does not identify its functional reader or prove that methylation mediates the T>C effect.",
+        "Direct adult-hypothalamus MeCP2 ChIP/Input exact-locus analysis remains unresolved at this status update."
+      ],
+      "next_test": "Finish direct MeCP2 ChIP/Input exact-locus context, then compare methylation and top reader occupancy between exact T and C alleles in the prioritized adult PH neuronal state."
+    }
+  ],
+  "demoted_candidates": [
+    {
+      "name": "LHX6 as broad direct adult-PH interpreter",
+      "reason": "Only 11 of 1791 Irx3-positive GSE146692 cells co-detected Lhx6 transcript; developmental/rare-cell routes remain open."
+    },
+    {
+      "name": "NKX6-3 as broad direct adult-PH interpreter",
+      "reason": "Only 5 of 1791 Irx3-positive GSE146692 cells co-detected Nkx6-3 transcript."
+    },
+    {
+      "name": "CXXC4 as a strictly conserved literal human-to-mouse motif mechanism",
+      "reason": "CXXC4 preserves an allele-effect direction in motif scans but does not preserve the same best strand/offset placement between human and mouse; it therefore fails the strict motif-slot portability gate."
+    }
+  ],
+  "cell_of_action": {
+    "status": "STATISTICALLY_PRIORITIZED_NOT_CAUSAL",
+    "note": "The exact 500-bp tile is rare but non-random across official adult hypothalamus subclasses. LHA-AHN-PVH Otp Trh Glut is the most replicate-stable primary candidate state (11/1842 tile-positive; 6/8 samples; pooled enrichment about 3.23x; Mantel-Haenszel OR about 3.64, 95% CI about 1.95-6.79, BH q about 0.00137), with significant cross-sample heterogeneity retained. This prioritizes a cell state but does not establish the native genotype-responsive causal cell."
+  },
+  "highest_information_next_test": "Exact-allele, sex-stratified, cell-resolved adult posterior-hypothalamus experiment in the prioritized neuronal states measuring Irx3 expression, exact-locus accessibility, local methylation, ARID5B/CUX1/top methylation-reader occupancy, and exact-element-to-Irx3 contact in matched biological material, followed by mediator perturbation/rescue.",
+  "cause_found": false
+}

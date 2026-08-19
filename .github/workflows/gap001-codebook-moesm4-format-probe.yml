@@ -1,0 +1,49 @@
+name: GAP-001 Codebook MOESM4 format probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [agent/causal-dna-001-bootstrap]
+    paths:
+      - 'analysis/gap001_probe_codebook_archive.py'
+      - '.github/workflows/gap001-codebook-moesm4-format-probe.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'analysis/gap001_probe_codebook_archive.py'
+      - '.github/workflows/gap001-codebook-moesm4-format-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe-format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download exact Nature DOI MOESM4 ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/codebook-probe results/gap001-codebook-moesm4-probe
+          curl --fail --location --retry 4 --retry-all-errors \
+            --output data/codebook-probe/moesm4.zip \
+            'https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-026-10798-9/MediaObjects/41586_2026_10798_MOESM4_ESM.zip'
+      - name: Inspect member format
+        run: |
+          python analysis/gap001_probe_codebook_archive.py \
+            --zip data/codebook-probe/moesm4.zip \
+            --output-json results/gap001-codebook-moesm4-probe/archive-format.json \
+            --sample-count 40 \
+            --preview-count 12
+      - name: Upload format probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap001-codebook-moesm4-format-probe
+          path: results/gap001-codebook-moesm4-probe/
+          if-no-files-found: error
+          retention-days: 30

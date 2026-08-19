@@ -1,0 +1,30 @@
+{
+  "analysis_id": "CDNA-001-JOINT-FRONTIER-001",
+  "case_id": "CDNA-001",
+  "disclaimer": "Joint assay frontier values are planning assumptions only. They are not biological probabilities, evidence strength, causal confidence, or therapeutic guidance.",
+  "decision_rule": "minimax_interval_regret",
+  "objective": "information_gain_per_cost",
+  "prior_model": "deterministic_simplex_grid",
+  "prior_simplex_total_units": 12,
+  "prior_min_units_per_hypothesis": 1,
+  "joint_experiment_ids": [
+    "E1_ARID5B_OCCUPANCY",
+    "E3_ALLELE_SNATAC",
+    "E5_MATCHED_MULTIOMIC"
+  ],
+  "linked_settings": {
+    "E2_CUX1_OCCUPANCY": "E1_ARID5B_OCCUPANCY",
+    "E4_CAPTURE_C": "E3_ALLELE_SNATAC"
+  },
+  "cost_multiplier_grid": [0.75, 1.0, 1.25],
+  "reliability_grid": [0.7, 0.85, 1.0],
+  "outcome_probability_max_transfer": 0.1,
+  "include_stop": true,
+  "pareto_budget": 4.5,
+  "pareto_horizons": [1, 2, 3],
+  "pareto_reference_settings": {
+    "E1_ARID5B_OCCUPANCY": {"cost_multiplier": 1.0, "reliability": 1.0},
+    "E3_ALLELE_SNATAC": {"cost_multiplier": 1.0, "reliability": 1.0},
+    "E5_MATCHED_MULTIOMIC": {"cost_multiplier": 1.0, "reliability": 1.0}
+  }
+}

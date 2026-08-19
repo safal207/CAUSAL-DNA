@@ -1,0 +1,10 @@
+[
+  {"event_id":"EV-0001","generation":0,"event_type":"perturbation","subject":"rs1421085 T>C","observer":"experiment","evidence_refs":["PMID:40835181"],"payload":{"result":"Irx3 PH increase observed"}},
+  {"event_id":"EV-0002","generation":0,"event_type":"observation","subject":"Irx3 PH increase","observer":"experiment","evidence_refs":["PMID:40835181"],"payload":{}},
+  {"event_id":"EV-0003","generation":1,"event_type":"hypothesis_opened","subject":"H1_ARID5B_REUSE","observer":"model","evidence_refs":["PMID:26287746","dataset:GSE146692"],"payload":{}},
+  {"event_id":"EV-0004","generation":1,"event_type":"hypothesis_opened","subject":"H2_CUX1","observer":"model","evidence_refs":["dataset:GSE146692"],"payload":{}},
+  {"event_id":"EV-0005","generation":1,"event_type":"hypothesis_opened","subject":"H3_ACCESSIBILITY","observer":"model","evidence_refs":["research:GAP-001-evidence-pass-04"],"payload":{}},
+  {"event_id":"EV-0006","generation":1,"event_type":"hypothesis_opened","subject":"H4_3D_CONTACT","observer":"model","evidence_refs":["PMID:34290091"],"payload":{}},
+  {"event_id":"EV-0007","generation":1,"event_type":"hypothesis_rejected","subject":"LHX6_BROAD_ADULT_PH","observer":"model","evidence_refs":["results:gap001-motif-candidates"],"payload":{"reason":"very low Irx3 co-detection in adult VPH screen"}},
+  {"event_id":"EV-0008","generation":1,"event_type":"model_update","subject":"GAP-001","observer":"model","evidence_refs":["cases:CDNA-001-GAP-001.status.json"],"payload":{"cause_found":false}}
+]

@@ -1,0 +1,56 @@
+name: GAP-001 VPH neuronal cell-type map
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_vph_celltype_map.py'
+      - 'analysis/requirements-h5ad.txt'
+      - '.github/workflows/gap001-vph-neuronal-celltypes.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  t1c-neuronal-celltypes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: analysis/requirements-h5ad.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r analysis/requirements-h5ad.txt
+
+      - name: Download curated JAX neuronal VPH h5ad
+        run: |
+          mkdir -p data/vph-2020
+          curl --fail --location --retry 4 --retry-all-errors \
+            --connect-timeout 30 --max-time 600 \
+            --output data/vph-2020/vph-2020_neuronal.h5ad \
+            https://singlecell.jax.org/datasets/vph/h5ad/vph-2020_neuronal.h5ad
+          ls -lh data/vph-2020/vph-2020_neuronal.h5ad
+
+      - name: Map Irx3/Arid5b onto curated neuronal annotations
+        run: |
+          python analysis/gap001_vph_celltype_map.py \
+            --h5ad data/vph-2020/vph-2020_neuronal.h5ad \
+            --output-dir results/gap001-vph-neuronal-celltypes
+
+      - name: Show report
+        run: cat results/gap001-vph-neuronal-celltypes/report.md
+
+      - name: Upload evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap001-vph-neuronal-celltypes
+          path: results/gap001-vph-neuronal-celltypes/
+          if-no-files-found: error
+          retention-days: 30

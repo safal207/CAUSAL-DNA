@@ -1,0 +1,83 @@
+name: GAP-001 decisive Irx3 candidate context
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_irx3_candidate_context.py'
+      - 'tests/test_irx3_candidate_context.py'
+      - 'analysis/requirements.txt'
+      - '.github/workflows/gap001-irx3-candidate-context.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'analysis/gap001_irx3_candidate_context.py'
+      - 'tests/test_irx3_candidate_context.py'
+      - 'analysis/requirements.txt'
+      - '.github/workflows/gap001-irx3-candidate-context.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  decisive-irx3-context:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install scientific dependencies
+        run: python -m pip install -r analysis/requirements.txt
+
+      - name: Test analysis contract
+        run: python -m unittest tests.test_irx3_candidate_context -v
+
+      - name: Download public adult VPH GSE146692 matrices
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='https://raw.githubusercontent.com/TheJacksonLaboratory/ventral-posterior-hypothalamus-scrnaseq/master/data/cellranger'
+          for sample in AJ18003 AJ18004 AJ19001 AJ19002; do
+            mkdir -p "data/gse146692/${sample}"
+            curl --fail --location --retry 4 --retry-all-errors \
+              --output "data/gse146692/${sample}/filtered_feature_bc_matrix.h5" \
+              "${root}/${sample}/filtered_feature_bc_matrix.h5"
+          done
+
+      - name: Run seven-candidate Irx3+ context screen
+        run: |
+          python analysis/gap001_irx3_candidate_context.py \
+            --input-root data/gse146692 \
+            --output-dir results/gap001-irx3-candidate-context
+
+      - name: Verify scope and non-causal boundary
+        run: |
+          python - <<'PY'
+          import csv, json
+          root='results/gap001-irx3-candidate-context'
+          summary=json.load(open(f'{root}/summary.json'))
+          rows=list(csv.DictReader(open(f'{root}/replicate_shortlist.csv')))
+          expected={'ARID5B','CUX1','TET1','KDM2B','DNMT1','MECP2','CXXC1'}
+          assert summary['candidate_count'] == 7
+          assert set(summary['candidates']) == expected
+          assert {r['candidate_tf'] for r in rows} == expected
+          assert all(int(r['replicates_with_irx3_codetection']) in range(5) for r in rows)
+          forbidden={'cause_found','causal_status','materialized','verified','mediator_found'}
+          assert not (forbidden & set(summary))
+          print(open(f'{root}/report.md').read())
+          print('ORDER', summary['top_candidate_order'])
+          PY
+
+      - name: Upload discovery artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap001-irx3-candidate-context
+          path: results/gap001-irx3-candidate-context/
+          if-no-files-found: error
+          retention-days: 30

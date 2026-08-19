@@ -1,0 +1,17 @@
+{
+  "dataset": "GSE146692",
+  "test": "GAP-001/T1",
+  "genes": ["Irx3", "Arid5b"],
+  "samples": {
+    "AJ18003": "male",
+    "AJ18004": "female",
+    "AJ19001": "female",
+    "AJ19002": "male"
+  },
+  "detection_rule": "UMI count > 0 in Cell Ranger filtered cells",
+  "workflow_run_id": 31987734506,
+  "workflow_head_sha": "6f8386fc91908a34c316a7ce68ae4ce6c83d76cd",
+  "artifact_id": 9274282174,
+  "artifact_digest": "sha256:0fa9620a6c669a71ecc946d0bbf561cce2175543bb0d8bc03ec5cd4c2d6af957",
+  "causal_claim": false
+}

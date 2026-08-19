@@ -1,0 +1,60 @@
+{
+  "plan_id": "CDNA-001-PLAN-001",
+  "case_id": "CDNA-001",
+  "disclaimer": "All weights and outcome probabilities in this file are planning priors for experimental prioritization only. They are not biological evidence and must never change causal status without new material evidence and independent verification.",
+  "hypotheses": {
+    "H1_ARID5B_REUSE": 1.0,
+    "H2_CUX1": 1.0,
+    "H3_ACCESSIBILITY": 1.0,
+    "H4_3D_CONTACT": 1.0
+  },
+  "experiments": [
+    {
+      "experiment_id": "E1_ARID5B_OCCUPANCY",
+      "label": "Exact-allele ARID5B occupancy in adult PH",
+      "cost": 1.0,
+      "outcomes": [
+        {"name": "allele_specific_occupancy", "planning_probability": 0.5, "posterior_weights": {"H1_ARID5B_REUSE": 4.0, "H2_CUX1": 1.0, "H3_ACCESSIBILITY": 1.0, "H4_3D_CONTACT": 1.0}},
+        {"name": "no_allele_specific_occupancy", "planning_probability": 0.5, "posterior_weights": {"H1_ARID5B_REUSE": 0.2, "H2_CUX1": 1.0, "H3_ACCESSIBILITY": 1.0, "H4_3D_CONTACT": 1.0}}
+      ]
+    },
+    {
+      "experiment_id": "E2_CUX1_OCCUPANCY",
+      "label": "Exact-allele CUX1 occupancy in adult PH",
+      "cost": 1.0,
+      "outcomes": [
+        {"name": "allele_specific_occupancy", "planning_probability": 0.5, "posterior_weights": {"H1_ARID5B_REUSE": 1.0, "H2_CUX1": 4.0, "H3_ACCESSIBILITY": 1.0, "H4_3D_CONTACT": 1.0}},
+        {"name": "no_allele_specific_occupancy", "planning_probability": 0.5, "posterior_weights": {"H1_ARID5B_REUSE": 1.0, "H2_CUX1": 0.2, "H3_ACCESSIBILITY": 1.0, "H4_3D_CONTACT": 1.0}}
+      ]
+    },
+    {
+      "experiment_id": "E3_ALLELE_SNATAC",
+      "label": "Exact-allele sex-stratified cell-resolved chromatin accessibility",
+      "cost": 1.5,
+      "outcomes": [
+        {"name": "accessibility_shift", "planning_probability": 0.5, "posterior_weights": {"H1_ARID5B_REUSE": 1.0, "H2_CUX1": 1.0, "H3_ACCESSIBILITY": 5.0, "H4_3D_CONTACT": 1.5}},
+        {"name": "no_accessibility_shift", "planning_probability": 0.5, "posterior_weights": {"H1_ARID5B_REUSE": 1.0, "H2_CUX1": 1.0, "H3_ACCESSIBILITY": 0.2, "H4_3D_CONTACT": 1.0}}
+      ]
+    },
+    {
+      "experiment_id": "E4_CAPTURE_C",
+      "label": "Exact-allele enhancer-to-Irx3 contact assay in adult PH",
+      "cost": 1.5,
+      "outcomes": [
+        {"name": "contact_shift", "planning_probability": 0.5, "posterior_weights": {"H1_ARID5B_REUSE": 1.0, "H2_CUX1": 1.0, "H3_ACCESSIBILITY": 1.5, "H4_3D_CONTACT": 5.0}},
+        {"name": "no_contact_shift", "planning_probability": 0.5, "posterior_weights": {"H1_ARID5B_REUSE": 1.0, "H2_CUX1": 1.0, "H3_ACCESSIBILITY": 1.0, "H4_3D_CONTACT": 0.2}}
+      ]
+    },
+    {
+      "experiment_id": "E5_MATCHED_MULTIOMIC",
+      "label": "Matched exact-allele PH multi-omic panel: Irx3 RNA + accessibility + ARID5B/CUX1 occupancy + 3D contact",
+      "cost": 3.0,
+      "outcomes": [
+        {"name": "tf_dominant", "planning_probability": 0.25, "posterior_weights": {"H1_ARID5B_REUSE": 4.0, "H2_CUX1": 4.0, "H3_ACCESSIBILITY": 1.0, "H4_3D_CONTACT": 1.0}},
+        {"name": "accessibility_dominant", "planning_probability": 0.25, "posterior_weights": {"H1_ARID5B_REUSE": 0.5, "H2_CUX1": 0.5, "H3_ACCESSIBILITY": 6.0, "H4_3D_CONTACT": 1.0}},
+        {"name": "contact_dominant", "planning_probability": 0.25, "posterior_weights": {"H1_ARID5B_REUSE": 0.5, "H2_CUX1": 0.5, "H3_ACCESSIBILITY": 1.0, "H4_3D_CONTACT": 6.0}},
+        {"name": "none_local", "planning_probability": 0.25, "posterior_weights": {"H1_ARID5B_REUSE": 0.2, "H2_CUX1": 0.2, "H3_ACCESSIBILITY": 0.2, "H4_3D_CONTACT": 0.2}}
+      ]
+    }
+  ]
+}

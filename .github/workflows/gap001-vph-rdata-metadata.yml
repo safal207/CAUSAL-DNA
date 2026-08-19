@@ -1,0 +1,59 @@
+name: GAP-001 VPH curated RData metadata
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/inspect_vph_rdata.R'
+      - '.github/workflows/gap001-vph-rdata-metadata.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-curated-rdata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+
+      - name: Download curated neuronal VPH RData
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/vph-2020
+          curl --fail --location --retry 4 --retry-all-errors \
+            --connect-timeout 30 --max-time 600 \
+            --output data/vph-2020/vph-2020_neuronal.rdata \
+            https://singlecell.jax.org/datasets/vph/rdata/vph-2020_neuronal.rdata
+          ls -lh data/vph-2020/vph-2020_neuronal.rdata
+
+      - name: Inspect objects and export metadata candidates
+        run: |
+          Rscript analysis/inspect_vph_rdata.R \
+            data/vph-2020/vph-2020_neuronal.rdata \
+            results/gap001-vph-rdata-metadata
+
+      - name: Show object schema
+        run: |
+          cat results/gap001-vph-rdata-metadata/object_schema.md
+          echo '--- inventory ---'
+          cat results/gap001-vph-rdata-metadata/object_inventory.csv
+          echo '--- metadata candidates ---'
+          cat results/gap001-vph-rdata-metadata/metadata_candidates.txt
+
+      - name: Upload metadata evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap001-vph-rdata-metadata
+          path: results/gap001-vph-rdata-metadata/
+          if-no-files-found: error
+          retention-days: 30

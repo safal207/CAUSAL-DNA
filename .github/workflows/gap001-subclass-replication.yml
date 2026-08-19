@@ -1,0 +1,83 @@
+name: GAP-001 all8 subclass replication
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_subclass_replication.py'
+      - 'analysis/requirements-subclass-replication.txt'
+      - 'discovery/CDNA-001-GSE246791-target-barcodes-all8.json'
+      - '.github/workflows/gap001-subclass-replication.yml'
+  pull_request:
+    paths:
+      - 'analysis/gap001_subclass_replication.py'
+      - 'analysis/requirements-subclass-replication.txt'
+      - 'discovery/CDNA-001-GSE246791-target-barcodes-all8.json'
+      - '.github/workflows/gap001-subclass-replication.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  replicate-aware:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install analysis dependencies
+        run: python -m pip install -r analysis/requirements-subclass-replication.txt
+
+      - name: Download official Zu et al. supplementary tables
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 3 -H 'Accept-Encoding: identity' \
+            -o /tmp/wmb-supplementary.zip \
+            'https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-023-06824-9/MediaObjects/41586_2023_6824_MOESM3_ESM.zip'
+          python - <<'PY'
+          import zipfile
+          z=zipfile.ZipFile('/tmp/wmb-supplementary.zip')
+          hits=[n for n in z.namelist() if 'SI Table 2 Metadata table for all the 2.3 million nuclei' in n and n.endswith('.txt')]
+          assert len(hits)==1, hits
+          print(hits[0])
+          z.extract(hits[0], '/tmp/wmb')
+          open('/tmp/table2-path.txt','w').write('/tmp/wmb/'+hits[0]+'\n')
+          PY
+
+      - name: Run replicate-aware subclass analysis
+        run: |
+          python analysis/gap001_subclass_replication.py \
+            --barcodes discovery/CDNA-001-GSE246791-target-barcodes-all8.json \
+            --metadata "$(cat /tmp/table2-path.txt)" \
+            --output /tmp/CDNA-001-GSE246791-subclass-replication.json \
+            | tee /tmp/subclass-replication.log
+
+      - name: Assert bounded priority signal
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/CDNA-001-GSE246791-subclass-replication.json'))
+          assert p['totals']['samples']==8
+          assert p['totals']['nuclei']==83321
+          assert p['totals']['target_tile_nuclei']==154
+          row=next(x for x in p['subclasses'] if x['subclass']=='LHA-AHN-PVH Otp Trh Glut')
+          assert row['target_nuclei']==11
+          assert row['samples_with_target']==6
+          assert row['bh_q'] < 0.05
+          print('PRIORITY_SUBCLASS', row)
+          print('BOUNDARY: statistical prioritization only; GAP-001 remains OPEN')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CDNA-001-GSE246791-subclass-replication
+          path: |
+            /tmp/CDNA-001-GSE246791-subclass-replication.json
+            /tmp/subclass-replication.log
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,100 @@
+name: GAP-001 hypothalamus PLAC-seq manifest
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - '.github/workflows/gap001-hypothalamus-placseq-manifest.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/gap001-hypothalamus-placseq-manifest.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch official GEO SOFT records for PLAC-seq series
+        run: |
+          set -euo pipefail
+          for acc in GSE295850 GSE295853; do
+            curl --fail --location --retry 5 --retry-delay 3 --retry-all-errors \
+              -o "/tmp/${acc}.soft" \
+              "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=${acc}&targ=self&view=full&form=text"
+            test -s "/tmp/${acc}.soft"
+          done
+
+      - name: Build processed-data manifest without downloading large genomics files
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          out={
+            'claim_scope':'official GEO data-discovery manifest only; no contact or causal claim',
+            'series':[]
+          }
+          for acc in ['GSE295850','GSE295853']:
+              path=Path(f'/tmp/{acc}.soft')
+              lines=path.read_text(errors='replace').splitlines()
+              entry={'accession':acc,'title':None,'summary':None,'supplementary_files':[],'samples':[]}
+              current=None
+              for line in lines:
+                  if line.startswith('!Series_title = '): entry['title']=line.split('=',1)[1].strip()
+                  elif line.startswith('!Series_summary = '): entry['summary']=line.split('=',1)[1].strip()
+                  elif line.startswith('!Series_supplementary_file'):
+                      u=line.split('=',1)[1].strip()
+                      if u and u.upper()!='NONE': entry['supplementary_files'].append(u)
+                  elif line.startswith('^SAMPLE = '):
+                      current={'gsm':line.split('=',1)[1].strip(),'title':None,'source':None,'characteristics':[],'description':[],'processing':[],'supplementary_files':[]}
+                      entry['samples'].append(current)
+                  elif current is not None:
+                      if line.startswith('!Sample_title = '): current['title']=line.split('=',1)[1].strip()
+                      elif line.startswith('!Sample_source_name_ch1 = '): current['source']=line.split('=',1)[1].strip()
+                      elif line.startswith('!Sample_characteristics_ch1 = '): current['characteristics'].append(line.split('=',1)[1].strip())
+                      elif line.startswith('!Sample_description = '): current['description'].append(line.split('=',1)[1].strip())
+                      elif line.startswith('!Sample_data_processing = '): current['processing'].append(line.split('=',1)[1].strip())
+                      elif line.startswith('!Sample_supplementary_file'):
+                          u=line.split('=',1)[1].strip()
+                          if u and u.upper()!='NONE': current['supplementary_files'].append(u)
+              out['series'].append(entry)
+
+          Path('/tmp/GAP-001-PLACseq-manifest.json').write_text(json.dumps(out,indent=2)+'\n')
+          for s in out['series']:
+              print('\nSERIES',s['accession'],s['title'])
+              print('SERIES FILES')
+              for u in s['supplementary_files']: print(' ',u)
+              print('SAMPLES',len(s['samples']))
+              for x in s['samples']:
+                  print('\n ',x['gsm'],x['title'])
+                  print('  characteristics:', ' | '.join(x['characteristics']))
+                  for u in x['supplementary_files']: print('  FILE',u)
+                  for p in x['processing']:
+                      if any(k in p.lower() for k in ['bedpe','maps','contact','interaction','bin','assembly','mm10']):
+                          print('  PROCESSING',p)
+          PY
+
+      - name: Assert PLAC-seq identity and processed-file provenance
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/GAP-001-PLACseq-manifest.json'))
+          assert {x['accession'] for x in p['series']} == {'GSE295850','GSE295853'}
+          text=json.dumps(p).lower()
+          assert 'plac' in text, 'official records do not identify PLAC-seq'
+          print('MANIFEST_ONLY: PASS')
+          print('No genomic contact interpretation performed in this workflow.')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GAP-001-hypothalamus-PLACseq-manifest
+          path: /tmp/GAP-001-PLACseq-manifest.json
+          if-no-files-found: error
+          retention-days: 30

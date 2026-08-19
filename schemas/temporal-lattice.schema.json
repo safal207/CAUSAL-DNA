@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/temporal-lattice.schema.json",
+  "title": "CAUSAL-DNA 4D Temporal Lattice",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lattice_id", "case_id", "axes", "states", "transitions"],
+  "properties": {
+    "lattice_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "axes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["space", "time", "evidence", "observer"],
+      "properties": {
+        "space": {"const": ["projective", "bardo", "material"]},
+        "time": {"const": ["past", "present", "future"]},
+        "evidence": {"const": ["none", "supportive", "perturbed", "rescued", "established"]},
+        "observer": {"const": ["model", "experiment", "independent_verifier"]}
+      }
+    },
+    "states": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "space", "time", "evidence", "observer", "label", "evidence_refs"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "space": {"enum": ["projective", "bardo", "material"]},
+          "time": {"enum": ["past", "present", "future"]},
+          "evidence": {"enum": ["none", "supportive", "perturbed", "rescued", "established"]},
+          "observer": {"enum": ["model", "experiment", "independent_verifier"]},
+          "label": {"type": "string", "minLength": 1},
+          "evidence_refs": {"type": "array", "items": {"type": "string"}},
+          "status": {"type": "string"}
+        }
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "from", "to", "relation"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "from": {"type": "string", "minLength": 1},
+          "to": {"type": "string", "minLength": 1},
+          "relation": {"enum": ["projects", "enters_bardo", "tests", "materializes", "updates_model", "bounds", "contradicts", "supersedes"]},
+          "evidence_refs": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

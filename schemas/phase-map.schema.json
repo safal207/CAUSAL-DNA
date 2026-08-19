@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/phase-map.schema.json",
+  "title": "CAUSAL-DNA phase-map configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_id",
+    "case_id",
+    "disclaimer",
+    "sensitivity_analysis_ref",
+    "objective",
+    "target_experiment_id",
+    "target_cost_multipliers",
+    "target_reliabilities",
+    "outcome_probability_max_transfers",
+    "competitor_reliability",
+    "include_stop"
+  ],
+  "properties": {
+    "analysis_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "disclaimer": {"type": "string", "minLength": 20},
+    "sensitivity_analysis_ref": {"type": "string", "minLength": 1},
+    "objective": {"const": "conservative_information_gain_per_cost"},
+    "target_experiment_id": {"type": "string", "minLength": 1},
+    "target_cost_multipliers": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"type": "number", "exclusiveMinimum": 0}
+    },
+    "target_reliabilities": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"type": "number", "minimum": 0, "maximum": 1}
+    },
+    "outcome_probability_max_transfers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "number", "minimum": 0, "exclusiveMaximum": 0.5}
+    },
+    "competitor_reliability": {"type": "number", "minimum": 0, "maximum": 1},
+    "include_stop": {"const": true}
+  }
+}

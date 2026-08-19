@@ -1,0 +1,9 @@
+{
+  "analysis_id": "CDNA-001-ROBUST-001",
+  "case_id": "CDNA-001",
+  "sensitivity_analysis_ref": "CDNA-001-SENS-001",
+  "disclaimer": "This robust-decision analysis varies planning priors only. Minimax regret and maximin information gain are planning robustness measures, not biological probabilities, evidence, p-values, or causal confidence.",
+  "regret_metric": "expected_information_gain_bits",
+  "max_first_step_cost": 4.5,
+  "include_stop": true
+}

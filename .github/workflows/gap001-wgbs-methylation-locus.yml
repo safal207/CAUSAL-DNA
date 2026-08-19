@@ -1,0 +1,185 @@
+name: GAP-001 adult hypothalamus exact-locus methylation context
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/causal-dna-001-bootstrap
+    paths:
+      - 'analysis/gap001_wgbs_methylation_locus.py'
+      - 'tests/test_gap001_wgbs_methylation_locus.py'
+      - '.github/workflows/gap001-wgbs-methylation-locus.yml'
+  pull_request:
+    paths:
+      - 'analysis/gap001_wgbs_methylation_locus.py'
+      - 'tests/test_gap001_wgbs_methylation_locus.py'
+      - '.github/workflows/gap001-wgbs-methylation-locus.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  wgbs-locus:
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - gsm: GSM2241593
+            rep: 1
+          - gsm: GSM2241594
+            rep: 2
+          - gsm: GSM2241595
+            rep: 3
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependency
+        run: python -m pip install 'pytest>=8,<9'
+
+      - name: Test methylation scanner
+        run: python -m pytest -q tests/test_gap001_wgbs_methylation_locus.py
+
+      - name: Lift exact mm10 ortholog to mm9 and fetch local reference sequence
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSLo /tmp/liftOver https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/liftOver
+          chmod +x /tmp/liftOver
+          curl -fsSLo /tmp/mm10ToMm9.over.chain.gz https://hgdownload.soe.ucsc.edu/goldenPath/mm10/liftOver/mm10ToMm9.over.chain.gz
+          gunzip /tmp/mm10ToMm9.over.chain.gz
+          printf 'chr8\t91374371\t91374372\trs1421085_mouse_ortholog\n' > /tmp/mm10.bed
+          /tmp/liftOver /tmp/mm10.bed /tmp/mm10ToMm9.over.chain /tmp/mm9.bed /tmp/unmapped.bed
+          test -s /tmp/mm9.bed
+          python - <<'PY'
+          import json, urllib.request
+          from pathlib import Path
+          chrom,start,end,*_=Path('/tmp/mm9.bed').read_text().strip().split('\t')
+          start=int(start); end=int(end)
+          assert chrom=='chr8' and end-start==1
+          radius=5005
+          low=max(0,start-radius); high=end+radius
+          url=f'https://api.genome.ucsc.edu/getData/sequence?genome=mm9;chrom={chrom};start={low};end={high}'
+          with urllib.request.urlopen(url, timeout=60) as r:
+              payload=json.load(r)
+          dna=payload['dna'].upper()
+          assert len(dna)==high-low, (len(dna),low,high)
+          Path('/tmp/ref.fa').write_text(f'>{chrom}:{low}-{high}\n{dna}\n')
+          Path('/tmp/site0.txt').write_text(str(start)+'\n')
+          Path('/tmp/fasta_start0.txt').write_text(str(low)+'\n')
+          print('MM9_EXACT_SITE',chrom,start,end,'1-based',start+1)
+          print('REFERENCE_WINDOW',low,high)
+          PY
+
+      - name: Resolve official WGBS coverage file from GEO SOFT
+        env:
+          GSM: ${{ matrix.gsm }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 4 --retry-all-errors \
+            -o /tmp/sample.soft \
+            "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=${GSM}&targ=self&view=full&form=text"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          gsm=os.environ['GSM']
+          lines=Path('/tmp/sample.soft').read_text(errors='replace').splitlines()
+          title=[x.split('=',1)[1].strip() for x in lines if x.startswith('!Sample_title = ')]
+          urls=[x.split('=',1)[1].strip() for x in lines if x.startswith('!Sample_supplementary_file')]
+          cov=[u for u in urls if u.endswith('.cov.txt.gz')]
+          assert len(title)==1 and len(cov)==1, (gsm,title,urls)
+          url=cov[0].replace('ftp://ftp.ncbi.nlm.nih.gov/','https://ftp.ncbi.nlm.nih.gov/')
+          Path('/tmp/cov_url.txt').write_text(url+'\n')
+          print('SAMPLE',gsm,title[0])
+          print('COV_URL',url)
+          PY
+
+      - name: Download processed WGBS calls
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-delay 5 --retry-all-errors \
+            -o /tmp/sample.cov.txt.gz "$(cat /tmp/cov_url.txt)"
+          test -s /tmp/sample.cov.txt.gz
+          gzip -t /tmp/sample.cov.txt.gz
+          ls -lh /tmp/sample.cov.txt.gz
+
+      - name: Query local mCG/mCAC substrate
+        env:
+          GSM: ${{ matrix.gsm }}
+          REP: ${{ matrix.rep }}
+        run: |
+          mkdir -p /tmp/out
+          python analysis/gap001_wgbs_methylation_locus.py \
+            --cov /tmp/sample.cov.txt.gz \
+            --fasta /tmp/ref.fa \
+            --fasta-start0 "$(cat /tmp/fasta_start0.txt)" \
+            --chrom chr8 \
+            --position0 "$(cat /tmp/site0.txt)" \
+            --radius 5000 \
+            --min-cov 5 \
+            --sample-id "${GSM}-rep${REP}" \
+            --output "/tmp/out/${GSM}-methylation.json" \
+            > /tmp/result.log
+          python - <<'PY'
+          import json, os
+          p=json.load(open(f"/tmp/out/{os.environ['GSM']}-methylation.json"))
+          assert p['cause_found'] is False
+          print('QUERY',p['query'])
+          print('CONTEXT_COUNTS',p['context_counts'])
+          for r in ('250','500','2000','5000'):
+              print('WINDOW',r,'CG',p['windows'][r]['CG'],'CAC',p['windows'][r]['CAC'])
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GAP-001-WGBS-${{ matrix.gsm }}
+          path: /tmp/out/${{ matrix.gsm }}-methylation.json
+          if-no-files-found: error
+          retention-days: 30
+
+  aggregate:
+    needs: wgbs-locus
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: GAP-001-WGBS-*
+          path: /tmp/results
+          merge-multiple: true
+      - name: Preserve replicate-level methylation result
+        run: |
+          python - <<'PY'
+          import glob,json,pathlib
+          rows=[]
+          for path in sorted(glob.glob('/tmp/results/*.json')):
+              p=json.load(open(path)); rows.append(p)
+          assert len(rows)==3, len(rows)
+          out={
+            'dataset':'GSE84533',
+            'replicates':rows,
+            'replicate_count':3,
+            'claim_scope':'bulk wild-type adult male hypothalamus methylation substrate only; no mediator or allele-specific promotion',
+            'cause_found':False,
+          }
+          pathlib.Path('/tmp/GAP-001-WGBS-aggregate.json').write_text(json.dumps(out,indent=2,sort_keys=True)+'\n')
+          for p in rows:
+              print(p['sample_id'])
+              print('  +/-250 CG',p['windows']['250']['CG'])
+              print('  +/-250 CAC',p['windows']['250']['CAC'])
+              print('  +/-2kb CG',p['windows']['2000']['CG'])
+              print('  +/-2kb CAC',p['windows']['2000']['CAC'])
+          print('GAP-001 remains OPEN; cause_found=false')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GAP-001-WGBS-aggregate
+          path: /tmp/GAP-001-WGBS-aggregate.json
+          if-no-files-found: error
+          retention-days: 30

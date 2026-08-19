@@ -1,0 +1,119 @@
+name: GAP-001 motif source stability
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [agent/causal-dna-001-bootstrap]
+    paths:
+      - 'analysis/gap001_motif_source_stability.py'
+      - 'analysis/gap001_prepare_codebook_atlas.py'
+      - 'analysis/gap001_codebook_motif_switch.py'
+      - 'tests/test_motif_source_stability.py'
+      - '.github/workflows/gap001-motif-source-stability.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'analysis/gap001_motif_source_stability.py'
+      - 'analysis/gap001_prepare_codebook_atlas.py'
+      - 'analysis/gap001_codebook_motif_switch.py'
+      - 'tests/test_motif_source_stability.py'
+      - '.github/workflows/gap001-motif-source-stability.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  source-stability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scientific dependencies
+        run: python -m pip install -r analysis/requirements.txt
+      - name: Run stability and scanner tests
+        run: |
+          python -m unittest tests.test_motif_source_stability -v
+          python -m unittest tests.test_codebook_motif_switch -v
+      - name: Fetch exact hg38 sequence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/stability results/gap001-motif-source-stability
+          curl --fail --location --retry 4 --retry-all-errors \
+            --output data/stability/rs1421085.hg38.json \
+            'https://api.genome.ucsc.edu/getData/sequence?genome=hg38;chrom=chr16;start=53766961;end=53767122'
+          python - <<'PY'
+          import json
+          dna=json.load(open('data/stability/rs1421085.hg38.json'))['dna'].upper()
+          assert len(dna)==161 and dna[80]=='T'
+          PY
+      - name: Fetch manual 235-motif source
+        run: git clone --depth 1 https://github.com/autosome-ru/perspectives-on-codebook-allele-specificity.git upstream/codebook-manual
+      - name: Fetch verified full Codebook MOESM4 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 4 --retry-all-errors \
+            --output data/stability/codebook-full.zip \
+            'https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-026-10798-9/MediaObjects/41586_2026_10798_MOESM4_ESM.zip'
+          python - <<'PY'
+          import hashlib, pathlib
+          p=pathlib.Path('data/stability/codebook-full.zip')
+          got=hashlib.sha256(p.read_bytes()).hexdigest()
+          expected='76e2d9b5f3dbe9f399bc70a89e68c58ebc082c9b8c872532ef6423c396e13588'
+          assert got==expected, (got, expected)
+          print('SOURCE_SHA256', got)
+          PY
+      - name: Normalize full atlas preserving all representatives
+        run: |
+          python analysis/gap001_prepare_codebook_atlas.py \
+            --input-zip data/stability/codebook-full.zip \
+            --output-dir data/stability/full-pwms \
+            --manifest results/gap001-motif-source-stability/full-atlas-manifest.json \
+            --expected-tfs 1421
+      - name: Scan both motif sources
+        run: |
+          python analysis/gap001_codebook_motif_switch.py \
+            --motif-dir upstream/codebook-manual/motifs/manual_motifs_v2/pwms \
+            --sequence-json data/stability/rs1421085.hg38.json \
+            --variant-index 80 --ref T --alt C \
+            --top-expression 40 \
+            --output-dir results/gap001-motif-source-stability/manual235
+          python analysis/gap001_codebook_motif_switch.py \
+            --motif-dir data/stability/full-pwms \
+            --sequence-json data/stability/rs1421085.hg38.json \
+            --variant-index 80 --ref T --alt C \
+            --top-expression 80 \
+            --output-dir results/gap001-motif-source-stability/full1421
+      - name: Compare source stability
+        run: |
+          python analysis/gap001_motif_source_stability.py \
+            --source-a-csv results/gap001-motif-source-stability/manual235/motif_switches.csv \
+            --source-b-csv results/gap001-motif-source-stability/full1421/motif_switches.csv \
+            --source-a-name manual235 \
+            --source-b-name full1421 \
+            --min-abs-delta 0.10 \
+            --output-dir results/gap001-motif-source-stability/compare
+          cat results/gap001-motif-source-stability/compare/motif_source_stability_report.md
+      - name: Guard scope and causal boundary
+        run: |
+          python - <<'PY'
+          import json
+          s=json.load(open('results/gap001-motif-source-stability/compare/motif_source_stability_summary.json'))
+          assert s['source_a_unique_tfs'] >= 200
+          assert s['source_b_unique_tfs'] == 1421
+          assert s['overlap_tfs'] >= 200
+          forbidden={'cause_found','causal_status','materialized','verified'}
+          assert not (forbidden & set(s))
+          print(json.dumps(s,indent=2))
+          PY
+      - name: Upload stability artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap001-motif-source-stability
+          path: results/gap001-motif-source-stability/
+          if-no-files-found: error
+          retention-days: 30

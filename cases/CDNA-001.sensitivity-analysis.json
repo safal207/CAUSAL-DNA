@@ -1,0 +1,12 @@
+{
+  "analysis_id": "CDNA-001-SENS-001",
+  "case_id": "CDNA-001",
+  "disclaimer": "This sensitivity analysis varies planning priors only. The resulting support fractions are robustness measures for experiment-planning policy, not biological probabilities, evidence, p-values, or causal confidence.",
+  "budget": 4.5,
+  "max_depth": 3,
+  "objective": "information_gain",
+  "simplex_total_units": 21,
+  "min_units_per_hypothesis": 1,
+  "first_step_robust_threshold": 0.60,
+  "policy_signature_robust_threshold": 0.25
+}

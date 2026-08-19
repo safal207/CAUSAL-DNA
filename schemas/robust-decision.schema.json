@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://causal-dna.dev/schemas/robust-decision.schema.json",
+  "title": "CAUSAL-DNA robust first-step decision configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_id",
+    "case_id",
+    "sensitivity_analysis_ref",
+    "disclaimer",
+    "regret_metric",
+    "max_first_step_cost",
+    "include_stop"
+  ],
+  "properties": {
+    "analysis_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "sensitivity_analysis_ref": {"type": "string", "minLength": 1},
+    "disclaimer": {"type": "string", "minLength": 20},
+    "regret_metric": {"const": "expected_information_gain_bits"},
+    "max_first_step_cost": {"type": "number", "exclusiveMinimum": 0},
+    "include_stop": {"const": true}
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "lattice_id": "CDNA-001-LATTICE-001",
+  "case_id": "CDNA-001",
+  "axes": {
+    "space": ["projective", "bardo", "material"],
+    "time": ["past", "present", "future"],
+    "evidence": ["none", "supportive", "perturbed", "rescued", "established"],
+    "observer": ["model", "experiment", "independent_verifier"]
+  },
+  "states": [
+    {
+      "id": "T0_RS1421085_EDIT",
+      "space": "material",
+      "time": "past",
+      "evidence": "perturbed",
+      "observer": "experiment",
+      "label": "Exact rs1421085 T>C intervention exists",
+      "evidence_refs": ["PMID:40835181"],
+      "status": "observed"
+    },
+    {
+      "id": "T0_IRX3_PH_UP",
+      "space": "material",
+      "time": "past",
+      "evidence": "supportive",
+      "observer": "experiment",
+      "label": "Irx3 increases in posterior hypothalamus under risk allele",
+      "evidence_refs": ["PMID:40835181"],
+      "status": "observed"
+    },
+    {
+      "id": "T0_ACTIVITY_DOWN",
+      "space": "material",
+      "time": "past",
+      "evidence": "perturbed",
+      "observer": "experiment",
+      "label": "IRX3 elevation reduces PH neuronal activity",
+      "evidence_refs": ["PMID:40835181"],
+      "status": "observed"
+    },
+    {
+      "id": "T1_GAP_MODEL",
+      "space": "projective",
+      "time": "present",
+      "evidence": "none",
+      "observer": "model",
+      "label": "What molecular mediator connects T>C to Irx3 up?",
+      "evidence_refs": [],
+      "status": "open"
+    },
+    {
+      "id": "T1_ARID5B",
+      "space": "bardo",
+      "time": "present",
+      "evidence": "supportive",
+      "observer": "model",
+      "label": "ARID5B reuse hypothesis",
+      "evidence_refs": ["PMID:26287746", "dataset:GSE146692"],
+      "status": "open"
+    },
+    {
+      "id": "T1_CUX1",
+      "space": "bardo",
+      "time": "present",
+      "evidence": "supportive",
+      "observer": "model",
+      "label": "CUX1 exact-site/combinatorial hypothesis",
+      "evidence_refs": ["dataset:GSE146692"],
+      "status": "open"
+    },
+    {
+      "id": "T1_ACCESS",
+      "space": "bardo",
+      "time": "present",
+      "evidence": "supportive",
+      "observer": "model",
+      "label": "Allele-dependent chromatin accessibility hypothesis",
+      "evidence_refs": ["research:GAP-001-evidence-pass-04"],
+      "status": "open"
+    },
+    {
+      "id": "T1_CONTACT",
+      "space": "bardo",
+      "time": "present",
+      "evidence": "supportive",
+      "observer": "model",
+      "label": "Allele-dependent enhancer-to-Irx3 contact hypothesis",
+      "evidence_refs": ["PMID:34290091"],
+      "status": "open"
+    },
+    {
+      "id": "T2_DECISIVE_EXPERIMENT",
+      "space": "projective",
+      "time": "future",
+      "evidence": "none",
+      "observer": "model",
+      "label": "Exact-allele sex-stratified cell-resolved PH mediator experiment",
+      "evidence_refs": [],
+      "status": "planned"
+    },
+    {
+      "id": "T2_RESOLUTION_GATE",
+      "space": "bardo",
+      "time": "future",
+      "evidence": "none",
+      "observer": "independent_verifier",
+      "label": "Independent resolution gate for mediator evidence",
+      "evidence_refs": ["protocol:causal-proof-v0.1"],
+      "status": "planned"
+    }
+  ],
+  "transitions": [
+    {"id": "TL_E01", "from": "T0_RS1421085_EDIT", "to": "T0_IRX3_PH_UP", "relation": "bounds", "evidence_refs": ["PMID:40835181"]},
+    {"id": "TL_E02", "from": "T0_IRX3_PH_UP", "to": "T0_ACTIVITY_DOWN", "relation": "bounds", "evidence_refs": ["PMID:40835181"]},
+    {"id": "TL_E03", "from": "T0_IRX3_PH_UP", "to": "T1_GAP_MODEL", "relation": "updates_model", "evidence_refs": ["PMID:40835181"]},
+    {"id": "TL_E04", "from": "T1_GAP_MODEL", "to": "T1_ARID5B", "relation": "enters_bardo", "evidence_refs": []},
+    {"id": "TL_E05", "from": "T1_GAP_MODEL", "to": "T1_CUX1", "relation": "enters_bardo", "evidence_refs": []},
+    {"id": "TL_E06", "from": "T1_GAP_MODEL", "to": "T1_ACCESS", "relation": "enters_bardo", "evidence_refs": []},
+    {"id": "TL_E07", "from": "T1_GAP_MODEL", "to": "T1_CONTACT", "relation": "enters_bardo", "evidence_refs": []},
+    {"id": "TL_E08", "from": "T1_ACCESS", "to": "T2_DECISIVE_EXPERIMENT", "relation": "projects", "evidence_refs": []},
+    {"id": "TL_E09", "from": "T1_CONTACT", "to": "T2_DECISIVE_EXPERIMENT", "relation": "projects", "evidence_refs": []},
+    {"id": "TL_E10", "from": "T1_ARID5B", "to": "T2_DECISIVE_EXPERIMENT", "relation": "projects", "evidence_refs": []},
+    {"id": "TL_E11", "from": "T1_CUX1", "to": "T2_DECISIVE_EXPERIMENT", "relation": "projects", "evidence_refs": []},
+    {"id": "TL_E12", "from": "T2_DECISIVE_EXPERIMENT", "to": "T2_RESOLUTION_GATE", "relation": "enters_bardo", "evidence_refs": []}
+  ]
+}

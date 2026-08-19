@@ -1,0 +1,29 @@
+[
+  {
+    "strategy_id": "STRAT-BUDGET-2-IG",
+    "case_id": "CDNA-001",
+    "budget": 2.0,
+    "max_depth": 2,
+    "objective": "information_gain",
+    "planning_only": true,
+    "note": "Short-horizon strategy under a two-cost-unit path budget."
+  },
+  {
+    "strategy_id": "STRAT-BUDGET-3-EFF",
+    "case_id": "CDNA-001",
+    "budget": 3.0,
+    "max_depth": 3,
+    "objective": "gain_per_cost",
+    "planning_only": true,
+    "note": "Adaptive three-step search for expected information gain per expected cost."
+  },
+  {
+    "strategy_id": "STRAT-BUDGET-4.5-IG",
+    "case_id": "CDNA-001",
+    "budget": 4.5,
+    "max_depth": 3,
+    "objective": "information_gain",
+    "planning_only": true,
+    "note": "Broader adaptive strategy allowing a matched multi-omic branch plus a follow-up assay when useful."
+  }
+]

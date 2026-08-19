@@ -1,0 +1,61 @@
+{
+  "gate_id": "COB-CDNA-001-GAP-001-v0.1",
+  "case_id": "CDNA-001",
+  "gap_id": "GAP-001",
+  "gap_status": "OPEN",
+  "boundary_found": false,
+  "target_transition": "Irx3 transcription increase in adult male posterior hypothalamus",
+  "boundaries": [
+    {
+      "id": "COB_A_OCCUPANCY",
+      "label": "Exact-site occupancy switch",
+      "components": ["X_ARID5B", "X_CUX1", "X_READER"],
+      "declared_status": "PROJECTIVE",
+      "evidence": {
+        "temporal_precedence": [],
+        "boundary_crossing_intervention": [],
+        "reversal_rescue": [],
+        "independent_verification": []
+      },
+      "falsification_conditions": [
+        "occupancy changes follow rather than precede Irx3 transcription",
+        "forcing occupancy state does not alter Irx3",
+        "normalizing occupancy in the risk background does not reduce the genotype effect"
+      ]
+    },
+    {
+      "id": "COB_B_CHROMATIN_CONTACT",
+      "label": "Joint accessibility and Irx3-contact switch",
+      "components": ["X_ACCESS", "X_CONTACT"],
+      "declared_status": "PROJECTIVE",
+      "evidence": {
+        "temporal_precedence": [],
+        "boundary_crossing_intervention": [],
+        "reversal_rescue": [],
+        "independent_verification": []
+      },
+      "falsification_conditions": [
+        "accessibility/contact changes do not precede Irx3 induction",
+        "jointly forcing the state does not shift Irx3",
+        "blocking both states leaves the genotype-to-Irx3 effect intact"
+      ]
+    },
+    {
+      "id": "COB_C_DISTRIBUTED",
+      "label": "Distributed occupancy-chromatin-contact switch",
+      "components": ["X_ARID5B", "X_CUX1", "X_READER", "X_ACCESS", "X_CONTACT"],
+      "declared_status": "PROJECTIVE",
+      "evidence": {
+        "temporal_precedence": [],
+        "boundary_crossing_intervention": [],
+        "reversal_rescue": [],
+        "independent_verification": []
+      },
+      "falsification_conditions": [
+        "a smaller experimentally supported boundary fully explains the transition",
+        "the combined state does not precede Irx3 induction",
+        "crossing or reversing the combined state does not change the RNA trajectory"
+      ]
+    }
+  ]
+}

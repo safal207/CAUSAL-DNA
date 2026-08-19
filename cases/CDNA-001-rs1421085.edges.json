@@ -1,0 +1,185 @@
+[
+  {
+    "edge_id": "CDNA-001-E01",
+    "from": "rs1421085 C allele",
+    "to": "ARID5B repressor motif disruption",
+    "claim": "The rs1421085 T>C substitution disrupts a conserved ARID5B repressor motif in the adipocyte-progenitor regulatory context.",
+    "context": {
+      "species": "Homo sapiens",
+      "tissue": "adipose",
+      "cell_type": "adipocyte progenitor",
+      "sex": null,
+      "developmental_state": "early adipocyte differentiation",
+      "environment": null
+    },
+    "evidence_type": ["motif", "genome_editing", "perturbation", "rescue"],
+    "intervention": "Endogenous CRISPR-Cas9 editing of rs1421085 in both risk and non-risk backgrounds; ARID5B perturbation.",
+    "outcome_measure": "ARID5B-dependent repression and IRX3/IRX5 expression.",
+    "sources": [
+      {
+        "kind": "PMID",
+        "id": "26287746",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/26287746/"
+      }
+    ],
+    "confidence": "high",
+    "status": "rescued",
+    "alternative_explanations": [
+      "Another regulatory factor could contribute to the allele-dependent enhancer effect in addition to ARID5B."
+    ],
+    "falsification_test": "Show that allele-dependent IRX3/IRX5 regulation persists after ARID5B dependence is removed in the same adipocyte-progenitor context."
+  },
+  {
+    "edge_id": "CDNA-001-E02",
+    "from": "ARID5B repression loss at rs1421085 element",
+    "to": "IRX3 and IRX5 expression increase",
+    "claim": "Loss of ARID5B-mediated repression at the rs1421085 regulatory element increases IRX3 and IRX5 expression in adipocyte progenitors.",
+    "context": {
+      "species": "Homo sapiens",
+      "tissue": "adipose",
+      "cell_type": "adipocyte progenitor",
+      "sex": null,
+      "developmental_state": "early adipocyte differentiation",
+      "environment": null
+    },
+    "evidence_type": ["knockdown", "genome_editing", "expression", "rescue"],
+    "intervention": "ARID5B knockdown and bidirectional rs1421085 editing.",
+    "outcome_measure": "IRX3 and IRX5 expression.",
+    "sources": [
+      {
+        "kind": "PMID",
+        "id": "26287746",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/26287746/"
+      }
+    ],
+    "confidence": "high",
+    "status": "rescued",
+    "alternative_explanations": [],
+    "falsification_test": "Demonstrate that restoring ARID5B repression at the endogenous locus fails to reduce IRX3/IRX5 expression under matched conditions."
+  },
+  {
+    "edge_id": "CDNA-001-E03",
+    "from": "IRX3 and IRX5 expression increase",
+    "to": "adipocyte thermogenesis decrease",
+    "claim": "Elevated IRX3/IRX5 shifts adipocyte differentiation away from the thermogenic beige program and decreases mitochondrial thermogenesis.",
+    "context": {
+      "species": "Homo sapiens",
+      "tissue": "adipose",
+      "cell_type": "adipocyte",
+      "sex": null,
+      "developmental_state": "differentiating / mature adipocyte",
+      "environment": null
+    },
+    "evidence_type": ["knockdown", "overexpression", "functional", "rescue"],
+    "intervention": "IRX3/IRX5 knockdown or overexpression; rs1421085 allele repair.",
+    "outcome_measure": "Thermogenic gene program and oxygen-consumption/thermogenesis phenotypes.",
+    "sources": [
+      {
+        "kind": "PMID",
+        "id": "26287746",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/26287746/"
+      }
+    ],
+    "confidence": "high",
+    "status": "rescued",
+    "alternative_explanations": [
+      "Additional downstream mediators may contribute to the thermogenic phenotype."
+    ],
+    "falsification_test": "Show that selective normalization of IRX3/IRX5 fails to restore thermogenic function in risk-allele adipocytes under matched conditions."
+  },
+  {
+    "edge_id": "CDNA-001-E04",
+    "from": "rs1421085 obesity-associated allele",
+    "to": "Irx3 expression increase in posterior hypothalamus",
+    "claim": "The obesity-associated rs1421085 allele is linked to increased Irx3 expression in the mouse posterior hypothalamus, but the intervening regulatory mechanism is unresolved.",
+    "context": {
+      "species": "Mus musculus",
+      "tissue": "posterior hypothalamus",
+      "cell_type": null,
+      "sex": null,
+      "developmental_state": "adult",
+      "environment": "obesogenic-condition study context"
+    },
+    "evidence_type": ["expression", "in_vivo", "association"],
+    "intervention": "Genetically engineered mice harboring the obesity-associated rs1421085 allele.",
+    "outcome_measure": "Regional Irx3 mRNA expression.",
+    "sources": [
+      {
+        "kind": "PMID",
+        "id": "40835181",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/40835181/"
+      }
+    ],
+    "confidence": "moderate",
+    "status": "candidate",
+    "alternative_explanations": [
+      "ARID5B-dependent regulation analogous to adipocyte progenitors.",
+      "A different transcription-factor mechanism in posterior-hypothalamic cells.",
+      "Allele-dependent chromatin accessibility or 3D contact change.",
+      "An indirect mediator upstream of Irx3.",
+      "A genotype-dependent change in cell composition rather than per-cell Irx3 transcription."
+    ],
+    "falsification_test": "Resolve the effect at cell-type level and show that the engineered allele does not change Irx3 expression per relevant posterior-hypothalamic cell under the conditions where the bulk/regional signal was observed.",
+    "notes": "GAP-001: this is the first unresolved load-bearing edge targeted by CAUSAL-DNA."
+  },
+  {
+    "edge_id": "CDNA-001-E05",
+    "from": "IRX3 increase in IRX3-positive posterior-hypothalamic neurons",
+    "to": "neuronal excitability and activity decrease",
+    "claim": "Increasing IRX3 in IRX3-positive posterior-hypothalamic neurons decreases their excitability/activity.",
+    "context": {
+      "species": "Mus musculus",
+      "tissue": "posterior hypothalamus",
+      "cell_type": "IRX3-positive neuron",
+      "sex": null,
+      "developmental_state": "adult",
+      "environment": null
+    },
+    "evidence_type": ["overexpression", "perturbation", "functional", "in_vivo"],
+    "intervention": "Targeted increase of IRX3 in posterior hypothalamus / IRX3-positive neurons.",
+    "outcome_measure": "Neuronal excitability and activity.",
+    "sources": [
+      {
+        "kind": "PMID",
+        "id": "40835181",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/40835181/"
+      }
+    ],
+    "confidence": "high",
+    "status": "perturbed",
+    "alternative_explanations": [
+      "Some physiological effects of IRX3 may be mediated by additional neuronal properties beyond excitability."
+    ],
+    "falsification_test": "Show that matched IRX3 elevation does not reduce excitability/activity in the implicated posterior-hypothalamic neuronal population."
+  },
+  {
+    "edge_id": "CDNA-001-E06",
+    "from": "IRX3-positive posterior-hypothalamic neuronal activity decrease",
+    "to": "food intake and body weight increase",
+    "claim": "Inhibition of IRX3-positive posterior-hypothalamic neurons increases food intake and body weight in mice.",
+    "context": {
+      "species": "Mus musculus",
+      "tissue": "posterior hypothalamus",
+      "cell_type": "IRX3-positive neuron",
+      "sex": null,
+      "developmental_state": "adult",
+      "environment": null
+    },
+    "evidence_type": ["neuronal_inhibition", "perturbation", "functional", "in_vivo"],
+    "intervention": "Targeted inhibition of IRX3-positive posterior-hypothalamic neurons.",
+    "outcome_measure": "Food intake and body weight.",
+    "sources": [
+      {
+        "kind": "PMID",
+        "id": "40835181",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/40835181/"
+      }
+    ],
+    "confidence": "high",
+    "status": "perturbed",
+    "alternative_explanations": [
+      "Body-weight change may include effects beyond feeding behavior."
+    ],
+    "falsification_test": "Replicate targeted neuronal inhibition without the predicted increase in feeding/body weight, while confirming effective inhibition of the same neuronal population."
+  }
+]

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/safal207/CAUSAL-DNA/schemas/adversarial-radius.schema.json",
+  "title": "CAUSAL-DNA Adversarial Robustness Radius Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_id",
+    "case_id",
+    "disclaimer",
+    "target_action_id",
+    "distance_metric",
+    "decision_rule",
+    "coarse_scan_step",
+    "binary_tolerance",
+    "fraction_grid",
+    "axes"
+  ],
+  "properties": {
+    "analysis_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "disclaimer": {"type": "string", "minLength": 1},
+    "target_action_id": {"type": "string", "minLength": 1},
+    "distance_metric": {"const": "weighted_linf"},
+    "decision_rule": {"const": "minimax_interval_regret"},
+    "coarse_scan_step": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.25},
+    "binary_tolerance": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.05},
+    "fraction_grid": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {"type": "number", "minimum": 0, "maximum": 1},
+      "contains": {"const": 0.0},
+      "allOf": [{"contains": {"const": 1.0}}]
+    },
+    "axes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["axis_id", "experiment_id", "field", "direction", "scale", "limit"],
+        "properties": {
+          "axis_id": {"type": "string", "minLength": 1},
+          "experiment_id": {"type": "string", "minLength": 1},
+          "field": {"enum": ["cost_multiplier", "reliability"]},
+          "direction": {"enum": ["increase", "decrease"]},
+          "scale": {"type": "number", "exclusiveMinimum": 0},
+          "limit": {"type": "number"}
+        }
+      }
+    }
+  }
+}
