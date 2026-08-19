@@ -7,6 +7,7 @@ on:
       - agent/causal-dna-001-bootstrap
     paths:
       - 'analysis/gap001_fetch_codebook_atlas.py'
+      - 'analysis/gap001_select_codebook_atlas_source.py'
       - 'analysis/gap001_prepare_codebook_atlas.py'
       - 'analysis/gap001_codebook_motif_switch.py'
       - 'tests/test_codebook_full_atlas.py'
@@ -17,6 +18,7 @@ on:
       - main
     paths:
       - 'analysis/gap001_fetch_codebook_atlas.py'
+      - 'analysis/gap001_select_codebook_atlas_source.py'
       - 'analysis/gap001_prepare_codebook_atlas.py'
       - 'analysis/gap001_codebook_motif_switch.py'
       - 'tests/test_codebook_full_atlas.py'
@@ -44,14 +46,15 @@ jobs:
           python -m unittest tests.test_codebook_full_atlas -v
           python -m unittest tests.test_codebook_motif_switch -v
 
-      - name: Fetch Nature Supplementary Data 1
+      - name: Select Nature Supplementary Data 1 by full-atlas parser contract
         run: |
           mkdir -p data/codebook-full results/gap001-codebook-full-atlas
-          python analysis/gap001_fetch_codebook_atlas.py \
+          python analysis/gap001_select_codebook_atlas_source.py \
+            --expected-tfs 1421 \
             --output-zip data/codebook-full/supplementary-data-1.zip \
             --provenance-json results/gap001-codebook-full-atlas/source-provenance.json
 
-      - name: Normalize and assert full 1421-TF atlas contract
+      - name: Normalize and independently assert full 1421-TF atlas contract
         run: |
           python analysis/gap001_prepare_codebook_atlas.py \
             --input-zip data/codebook-full/supplementary-data-1.zip \
@@ -106,9 +109,13 @@ jobs:
           import csv, json
           rows=list(csv.DictReader(open('results/gap001-codebook-full-atlas/motif_switches.csv')))
           manifest=json.load(open('results/gap001-codebook-full-atlas/atlas-manifest.json'))
+          source=json.load(open('results/gap001-codebook-full-atlas/source-provenance.json'))
+          assert source['selected_atlas_contract']['full_atlas_contract_pass'] is True
+          assert source['selected_atlas_contract']['parsed_unique_tfs'] == 1421
           assert manifest['full_atlas_contract_pass'] is True
           assert len(rows) == 1421, len(rows)
           print('FULL_ATLAS_TFS', len(rows))
+          print('SELECTED_SOURCE', source['selected_index'], source['selected_sha256'])
           print(open('results/gap001-codebook-full-atlas/report.md').read())
           PY
 
